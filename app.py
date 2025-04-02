@@ -23,46 +23,51 @@ def connect_to_gsheets():
         "https://www.googleapis.com/auth/drive"
     ]
 
-    # Pobieranie danych z secrets.toml
     credentials = st.secrets["gcp_service_account"]
-    
-    # Konfiguracja poświadczeń
     creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
     client = gspread.authorize(creds)
+    
+    return client
 
-    # Otwieranie arkusza Google (upewnij się, że nazwa arkusza jest poprawna!)
+# Funkcja ładowania danych użytkowników z Google Sheets
+def load_users():
+    client = connect_to_gsheets()
     try:
-        sheet = client.open("ProductionManagerApp").sheet1  # Podaj dokładną nazwę swojego arkusza
-        return sheet
-    except Exception as e:
-        st.error(f"❌ Błąd podczas łączenia z arkuszem Google: {e}")
-        return None
-
-# Funkcja zapisywania danych do Google Sheets
-def save_data_to_gsheets(dataframe):
-    sheet = connect_to_gsheets()
-    if sheet:
-        dataframe = dataframe.astype(str)
-        sheet.clear()
-        sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
-
-# Funkcja ładowania danych z Google Sheets
-def load_data_from_gsheets():
-    sheet = connect_to_gsheets()
-    if sheet:
+        sheet = client.open("ProductionManagerApp").worksheet("Users")  # Arkusz z użytkownikami
         data = sheet.get_all_records()
         if data:
             return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"❌ Błąd podczas ładowania użytkowników: {e}")
+    return pd.DataFrame(columns=['Username', 'Password', 'Role'])
+
+# Funkcja zapisywania użytkowników do Google Sheets
+def save_users_to_gsheets(users_df):
+    client = connect_to_gsheets()
+    sheet = client.open("ProductionManagerApp").worksheet("Users")
+    users_df = users_df.astype(str)
+    sheet.clear()
+    sheet.update([users_df.columns.values.tolist()] + users_df.values.tolist())
+
+# Funkcja ładowania danych produkcyjnych z arkusza Google Sheets
+def load_data_from_gsheets():
+    client = connect_to_gsheets()
+    try:
+        sheet = client.open("ProductionManagerApp").sheet1
+        data = sheet.get_all_records()
+        if data:
+            return pd.DataFrame(data)
+    except Exception as e:
+        st.error(f"❌ Błąd podczas ładowania danych produkcyjnych: {e}")
     return pd.DataFrame(columns=['Date', 'Company', 'Seal Count', 'Operator', 'Seal Type', 'Production Time', 'Downtime', 'Reason for Downtime'])
 
-# Funkcja ładowania użytkowników
-def load_users():
-    try:
-        return pd.read_excel('users.xlsx', sheet_name='Users')
-    except FileNotFoundError:
-        users = pd.DataFrame({'Username': ['admin'], 'Password': ['admin'], 'Role': ['Admin']})
-        users.to_excel('users.xlsx', sheet_name='Users', index=False)
-        return users
+# Funkcja zapisywania danych produkcyjnych do Google Sheets
+def save_data_to_gsheets(dataframe):
+    client = connect_to_gsheets()
+    sheet = client.open("ProductionManagerApp").sheet1
+    dataframe = dataframe.astype(str)
+    sheet.clear()
+    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
 
 # Funkcja logowania
 def login(username, password, users_df):
@@ -93,35 +98,8 @@ else:
     if st.sidebar.button("Logout"):
         st.session_state.user = None
 if st.session_state.user is not None:
-    # Formularz dodawania nowych wpisów
-    with st.sidebar.form("production_form"):
-        date = st.date_input("Production Date", value=datetime.date.today())
-        company = st.text_input("Company Name")
-        operator = st.text_input("Operator", value=st.session_state.user['Username'])
-        seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'])
-        seals_count = st.number_input("Number of Seals", min_value=0, step=1)
-        production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
-        downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1)
-        downtime_reason = st.text_input("Reason for Downtime")
-        submitted = st.form_submit_button("Save Entry")
-
-        if submitted:
-            new_entry = {
-                'Date': date,
-                'Company': company,
-                'Seal Count': seals_count,
-                'Operator': operator,
-                'Seal Type': seal_type,
-                'Production Time': production_time,
-                'Downtime': downtime,
-                'Reason for Downtime': downtime_reason
-            }
-            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-            save_data_to_gsheets(df)
-            st.sidebar.success("Production entry saved successfully!")
-
     # Zakładki
-    tab1, tab2 = st.tabs(["Home", "Production Charts"])
+    tab1, tab2, tab3 = st.tabs(["Home", "Production Charts", "User Management"])
 
     with tab1:
         st.header("📊 Production Data Overview")
@@ -132,8 +110,8 @@ if st.session_state.user is not None:
         st.header("📈 Production Charts")
         if not df.empty:
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-            fig1 = px.line(df, x='Date', y='Seal Count', title='Daily Production Trend')
-            st.plotly_chart(fig1)
+            fig = px.line(df, x='Date', y='Seal Count', title='Daily Production Trend')
+            st.plotly_chart(fig)
 
             fig2 = px.bar(df, x='Company', y='Seal Count', title='Production by Company')
             st.plotly_chart(fig2)
@@ -144,38 +122,30 @@ if st.session_state.user is not None:
             fig4 = px.bar(df, x='Seal Type', y='Seal Count', title='Production by Seal Type')
             st.plotly_chart(fig4)
 
-    # ✅ Opcja edycji i usuwania dla Admina
-    if st.session_state.user.get('Role', '') == 'Admin':
-        st.sidebar.header("✏️ Edit or Delete Entry")
+    with tab3:
+        if st.session_state.user['Role'] == 'Admin':
+            st.header("👥 User Management")
 
-        if not df.empty:
-            selected_index = st.sidebar.selectbox("Select Entry to Edit", df.index)
-            
-            if selected_index is not None:
-                selected_row = df.loc[selected_index]
-                
-                with st.form("edit_form"):
-                    date = st.date_input("Edit Production Date", value=pd.to_datetime(selected_row['Date']).date())
-                    company = st.text_input("Edit Company Name", value=selected_row['Company'])
-                    seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
-                    production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
-                    downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']))
-                    downtime_reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'])
+            if not users_df.empty:
+                st.dataframe(users_df)
 
-                    update_button = st.form_submit_button("Update Entry")
-                    delete_button = st.form_submit_button("Delete Entry")
+            st.subheader("Add New User")
+            with st.form("add_user_form"):
+                new_username = st.text_input("New Username")
+                new_password = st.text_input("New Password")
+                new_role = st.selectbox("Role", ["Admin", "Operator"])
+                add_user_btn = st.form_submit_button("Add User")
 
-                    if update_button:
-                        df.at[selected_index, 'Date'] = date
-                        df.at[selected_index, 'Company'] = company
-                        df.at[selected_index, 'Seal Count'] = seals_count
-                        df.at[selected_index, 'Production Time'] = production_time
-                        df.at[selected_index, 'Downtime'] = downtime
-                        df.at[selected_index, 'Reason for Downtime'] = downtime_reason
-                        save_data_to_gsheets(df)
-                        st.sidebar.success("Entry updated successfully!")
+            if add_user_btn:
+                new_user = pd.DataFrame([[new_username, new_password, new_role]], columns=['Username', 'Password', 'Role'])
+                users_df = pd.concat([users_df, new_user], ignore_index=True)
+                save_users_to_gsheets(users_df)
+                st.success("User added successfully!")
 
-                    if delete_button:
-                        df = df.drop(selected_index)
-                        save_data_to_gsheets(df)
-                        st.sidebar.success("Entry deleted successfully!")
+            st.subheader("Delete User")
+            if not users_df.empty:
+                user_to_delete = st.selectbox("Select User to Delete", users_df['Username'])
+                if st.button("Delete User"):
+                    users_df = users_df[users_df['Username'] != user_to_delete]
+                    save_users_to_gsheets(users_df)
+                    st.success("User deleted successfully!")
