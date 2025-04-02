@@ -1,0 +1,11 @@
+streamlit
+pandas
+openpyxl
+fpdf
+matplotlib
+seaborn
+streamlit
+pandas
+bcrypt
+plotly
+openpyxl
