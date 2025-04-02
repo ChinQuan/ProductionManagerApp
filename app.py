@@ -92,70 +92,60 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-    # Zakładki: Home i Charts
-    tab1, tab2 = st.tabs(["Home", "Production Charts"])
-
-    with tab1:
-        st.header("📊 Production Data Overview")
-        if not df.empty:
-            st.dataframe(df)
+# Formularz dodawania nowych wpisów
+if st.session_state.user is not None:
+    with st.sidebar.form("production_form"):
+        date = st.date_input("Production Date", value=datetime.date.today())
+        company = st.text_input("Company Name")
+        
+        if 'user' in st.session_state and st.session_state.user is not None:
+            operator_name = st.session_state.user['Username']
         else:
-            st.write("No data available. Please add some entries.")
+            operator_name = ""  
+        
+        operator = st.text_input("Operator", value=operator_name)
+        seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'])
+        seals_count = st.number_input("Number of Seals", min_value=0, step=1)
+        production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
+        downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1)
+        downtime_reason = st.text_input("Reason for Downtime")
+        submitted = st.form_submit_button("Save Entry")
 
-    with tab2:
-        st.header("📈 Production Charts")
-        if not df.empty:
-            try:
-                df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-                
-                fig1 = px.line(df, x='Date', y='Seal Count', title='Daily Production Trend')
-                st.plotly_chart(fig1)
+        if submitted:
+            new_entry = {
+                'Date': date,
+                'Company': company,
+                'Seal Count': seals_count,
+                'Operator': operator,
+                'Seal Type': seal_type,
+                'Production Time': production_time,
+                'Downtime': downtime,
+                'Reason for Downtime': downtime_reason
+            }
+            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+            save_data_to_gsheets(df)
+            st.sidebar.success("Production entry saved successfully!")
 
-                fig2 = px.bar(df, x='Company', y='Seal Count', title='Production by Company')
-                st.plotly_chart(fig2)
+# Zakładki
+tab1, tab2 = st.tabs(["Home", "Production Charts"])
 
-                fig3 = px.bar(df, x='Operator', y='Seal Count', title='Production by Operator')
-                st.plotly_chart(fig3)
-                
-                fig4 = px.bar(df, x='Seal Type', y='Seal Count', title='Production by Seal Type')
-                st.plotly_chart(fig4)
-                
-            except Exception as e:
-                st.error(f"❌ Error generating charts: {e}")
-        else:
-            st.write("No data to display charts. Please add entries.")
+with tab1:
+    st.header("📊 Production Data Overview")
+    if not df.empty:
+        st.dataframe(df)
+    else:
+        st.write("No data available. Please add some entries.")
 
-    if 'user' in st.session_state and st.session_state.user is not None and st.session_state.user.get('Role', '') == 'Admin':
-        st.sidebar.header("✏️ Edit or Delete Entry")
+with tab2:
+    st.header("📈 Production Charts")
+    if not df.empty:
+        try:
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            fig = px.line(df, x='Date', y='Seal Count', title='Daily Production Trend')
+            st.plotly_chart(fig)
+        except Exception as e:
+            st.error(f"❌ Error generating charts: {e}")
 
-        if not df.empty:
-            selected_index = st.sidebar.selectbox("Select Entry to Edit", df.index)
-            
-            if selected_index is not None:
-                selected_row = df.loc[selected_index]
-                
-                with st.form("edit_form"):
-                    date = st.date_input("Edit Production Date", value=pd.to_datetime(selected_row['Date']).date())
-                    company = st.text_input("Edit Company Name", value=selected_row['Company'])
-                    seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
-                    production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
-                    downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']))
-                    downtime_reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'])
-
-                    update_button = st.form_submit_button("Update Entry")
-                    delete_button = st.form_submit_button("Delete Entry")
-
-                    if update_button:
-                        df.at[selected_index, 'Date'] = date
-                        df.at[selected_index, 'Company'] = company
-                        df.at[selected_index, 'Seal Count'] = seals_count
-                        df.at[selected_index, 'Production Time'] = production_time
-                        df.at[selected_index, 'Downtime'] = downtime
-                        df.at[selected_index, 'Reason for Downtime'] = downtime_reason
-                        save_data_to_gsheets(df)
-                        st.success("Entry updated successfully!")
-
-                    if delete_button:
-                        df = df.drop(selected_index)
-                        save_data_to_gsheets(df)
-                        st.success("Entry deleted successfully!")
+# Sprawdzenie czy user jest Adminem
+if 'user' in st.session_state and st.session_state.user is not None and st.session_state.user.get('Role', '') == 'Admin':
+    st.sidebar.header("✏️ Edit or Delete Entry")
