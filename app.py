@@ -147,11 +147,26 @@ if st.session_state.user is not None:
     ])
 
     with tab1:
-        st.header("📊 Production Data Overview")
-        if not df.empty:
-            # ✅ Konwersja 'Date' na string przed wyświetleniem, żeby uniknąć błędów PyArrow
-            df['Date'] = df['Date'].astype(str)
-            st.dataframe(df)
+    st.header("📊 Production Data Overview")
+    if not df.empty:
+        # ✅ Konwersja kolumny 'Date' do formatu datetime
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+
+        # 📈 Obliczanie średniej produkcji dziennej
+        total_seals = df['Seal Count'].sum()
+        total_days = (df['Date'].max() - df['Date'].min()).days + 1  # Dodajemy 1, żeby wliczyć oba końce zakresu
+        
+        if total_days > 0:
+            average_daily_production = total_seals / total_days
+        else:
+            average_daily_production = 0
+
+        # 💪 Wyświetlanie średniej produkcji dziennej
+        st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
+
+        # 🔥 Konwersja 'Date' na string przed wyświetleniem, żeby uniknąć błędów PyArrow
+        df['Date'] = df['Date'].astype(str)
+        st.dataframe(df)
 
     with tab2:
         show_charts(df)
