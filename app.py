@@ -97,7 +97,36 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
+# Formularz dodawania nowych wpisów – dostępny dla wszystkich zalogowanych użytkowników (Admin + Operator)
 if st.session_state.user is not None:
+    st.sidebar.header("➕ Add New Order")
+
+    with st.sidebar.form("production_form"):
+        date = st.date_input("Production Date", value=datetime.date.today())
+        company = st.text_input("Company Name")
+        operator = st.text_input("Operator", value=st.session_state.user['Username'])
+        seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'])
+        seals_count = st.number_input("Number of Seals", min_value=0, step=1)
+        production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
+        downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1)
+        downtime_reason = st.text_input("Reason for Downtime")
+        submitted = st.form_submit_button("Save Order")
+
+        if submitted:
+            new_entry = {
+                'Date': date,
+                'Company': company,
+                'Seal Count': seals_count,
+                'Operator': operator,
+                'Seal Type': seal_type,
+                'Production Time': production_time,
+                'Downtime': downtime,
+                'Reason for Downtime': downtime_reason
+            }
+            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+            save_data_to_gsheets(df)
+            st.sidebar.success("Order saved successfully!")
+
     # Zakładki
     tab1, tab2, tab3 = st.tabs(["Home", "Production Charts", "User Management"])
 
@@ -121,7 +150,6 @@ if st.session_state.user is not None:
 
             fig4 = px.bar(df, x='Seal Type', y='Seal Count', title='Production by Seal Type')
             st.plotly_chart(fig4)
-
     with tab3:
         if st.session_state.user['Role'] == 'Admin':
             st.header("👥 User Management")
@@ -164,7 +192,11 @@ if st.session_state.user is not None:
                     date = st.date_input("Edit Production Date", value=pd.to_datetime(selected_row['Date']).date())
                     company = st.text_input("Edit Company Name", value=selected_row['Company'])
                     operator = st.text_input("Edit Operator", value=selected_row['Operator'])
-                    seal_type = st.selectbox("Edit Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'], index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'].index(selected_row['Seal Type']))
+                    seal_type = st.selectbox(
+                        "Edit Seal Type", 
+                        ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'], 
+                        index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'].index(selected_row['Seal Type'])
+                    )
                     seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
                     production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
                     downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']))
