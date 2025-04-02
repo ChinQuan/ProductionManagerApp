@@ -22,7 +22,20 @@ st.title("Production Manager App")
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# Funkcja połączenia z Google Sheets
+# ✅ Wczytywanie danych tylko raz do pamięci (używając cache)
+@st.cache_data
+def load_data_from_gsheets():
+    client = connect_to_gsheets()
+    sheet = client.open("ProductionManagerApp").sheet1
+    data = sheet.get_all_records()
+    return pd.DataFrame(data)
+
+# ✅ Przechowywanie danych w sesji dla lepszego dostępu
+if 'data' not in st.session_state:
+    st.session_state.data = load_data_from_gsheets()
+df = st.session_state.data  # Używamy danych z pamięci
+
+# ✅ Funkcja połączenia z Google Sheets
 def connect_to_gsheets():
     scope = [
         "https://spreadsheets.google.com/feeds",
@@ -30,14 +43,30 @@ def connect_to_gsheets():
         "https://www.googleapis.com/auth/drive.file",
         "https://www.googleapis.com/auth/drive"
     ]
-
     credentials = st.secrets["gcp_service_account"]
     creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
     client = gspread.authorize(creds)
-    
     return client
 
-# Funkcja ładowania danych użytkowników z Google Sheets
+# ✅ Funkcja zapisywania danych produkcyjnych do Google Sheets (Tylko przy zmianach)
+def save_data_to_gsheets(dataframe):
+    client = connect_to_gsheets()
+    sheet = client.open("ProductionManagerApp").sheet1
+    
+    dataframe['Date'] = dataframe['Date'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else None)
+    dataframe = dataframe.astype(str)
+    sheet.clear()
+    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+    st.session_state.data = dataframe  # Aktualizacja pamięci
+
+# ✅ Funkcja logowania
+def login(username, password, users_df):
+    user = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
+    if not user.empty:
+        return user.iloc[0]
+    return None
+# Wczytanie użytkowników z Google Sheets
+@st.cache_data
 def load_users():
     client = connect_to_gsheets()
     try:
@@ -49,49 +78,12 @@ def load_users():
         st.error(f"❌ Błąd podczas ładowania użytkowników: {e}")
     return pd.DataFrame(columns=['Username', 'Password', 'Role'])
 
-# Funkcja zapisywania użytkowników do Google Sheets
-def save_users_to_gsheets(users_df):
-    client = connect_to_gsheets()
-    sheet = client.open("ProductionManagerApp").worksheet("Users")
-    users_df = users_df.astype(str)
-    sheet.clear()
-    sheet.update([users_df.columns.values.tolist()] + users_df.values.tolist())
-# Funkcja ładowania danych produkcyjnych z arkusza Google Sheets
-def load_data_from_gsheets():
-    client = connect_to_gsheets()
-    try:
-        sheet = client.open("ProductionManagerApp").sheet1
-        data = sheet.get_all_records()
-        if data:
-            return pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"❌ Błąd podczas ładowania danych produkcyjnych: {e}")
-    return pd.DataFrame(columns=['Date', 'Company', 'Seal Count', 'Operator', 'Seal Type', 'Production Time', 'Downtime', 'Reason for Downtime'])
+# Wczytywanie użytkowników do sesji
+if 'users' not in st.session_state:
+    st.session_state.users = load_users()
+users_df = st.session_state.users
 
-# Funkcja zapisywania danych produkcyjnych do Google Sheets
-def save_data_to_gsheets(dataframe):
-    client = connect_to_gsheets()
-    sheet = client.open("ProductionManagerApp").sheet1
-    
-    # ✅ Konwersja kolumny 'Date' do stringów przed zapisem
-    dataframe['Date'] = dataframe['Date'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else None)
-    
-    dataframe = dataframe.astype(str)
-    sheet.clear()
-    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
-
-# Funkcja logowania
-def login(username, password, users_df):
-    user = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
-    if not user.empty:
-        return user.iloc[0]
-    return None
-
-# Wczytanie użytkowników i danych produkcyjnych
-users_df = load_users()
-df = load_data_from_gsheets()
-
-# ✅ Konwersja kolumny 'Date' do datetime
+# ✅ Konwersja kolumny 'Date' do datetime przy starcie aplikacji
 df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
 # Panel logowania
@@ -111,6 +103,41 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
+
+# ✅ Paginacja danych w tabeli (Wyświetlanie po 20 rekordów)
+def paginate_dataframe(dataframe, page_size=20):
+    total_pages = (len(dataframe) - 1) // page_size + 1
+    page_number = st.sidebar.number_input('Page Number', min_value=1, max_value=total_pages, value=1)
+    start_idx = (page_number - 1) * page_size
+    end_idx = start_idx + page_size
+    return dataframe.iloc[start_idx:end_idx]
+
+# Zakładki
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+    "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time"
+])
+
+with tab1:
+    st.header("📊 Production Data Overview")
+    
+    if not df.empty:
+        # 📈 Obliczanie średniej produkcji dziennej
+        total_seals = df['Seal Count'].sum()
+        total_days = (df['Date'].max() - df['Date'].min()).days + 1
+        
+        if total_days > 0:
+            average_daily_production = total_seals / total_days
+        else:
+            average_daily_production = 0
+
+        st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
+
+        # 🔥 Wyświetlanie danych z paginacją
+        paginated_df = paginate_dataframe(df)
+        st.dataframe(paginated_df)
+
+    # 🔥 Automatyczne odświeżanie danych po zapisie (odczyt z pamięci)
+    df = st.session_state.data
 # Formularz dodawania nowych wpisów
 if st.session_state.user is not None:
     st.sidebar.header("➕ Add New Order")
@@ -139,51 +166,8 @@ if st.session_state.user is not None:
             }
             df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
             save_data_to_gsheets(df)
+            st.session_state.data = df  # Aktualizacja danych w pamięci
             st.sidebar.success("Order saved successfully!")
-
-    # Zakładki
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time"
-    ])
-
-    with tab1:
-        st.header("📊 Production Data Overview")
-        
-        if not df.empty:
-            # ✅ Konwersja 'Date' do formatu datetime
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-
-            # 📈 Obliczanie średniej produkcji dziennej
-            total_seals = df['Seal Count'].sum()
-            total_days = (df['Date'].max() - df['Date'].min()).days + 1
-            
-            if total_days > 0:
-                average_daily_production = total_seals / total_days
-            else:
-                average_daily_production = 0
-
-            # 💪 Wyświetlanie średniej produkcji dziennej
-            st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
-
-            # 🔥 Konwersja 'Date' na string przed wyświetleniem
-            df['Date'] = df['Date'].astype(str)
-            st.dataframe(df)
-
-    with tab2:
-        show_charts(df)
-
-    with tab3:
-        if st.session_state.user['Role'] == 'Admin':
-            show_user_management(users_df, save_users_to_gsheets)
-
-    with tab4:
-        show_reports(df)
-
-    with tab5:
-        show_backup_option(df, save_data_to_gsheets)
-
-    with tab6:
-        calculate_average_time(df)
 
 # ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
 if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
@@ -230,9 +214,11 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
                     df.at[selected_index, 'Downtime'] = downtime
                     df.at[selected_index, 'Reason for Downtime'] = downtime_reason
                     save_data_to_gsheets(df)
+                    st.session_state.data = df  # Aktualizacja danych w pamięci
                     st.sidebar.success("Order updated successfully!")
 
                 if delete_button:
                     df = df.drop(selected_index)
                     save_data_to_gsheets(df)
+                    st.session_state.data = df  # Aktualizacja danych w pamięci
                     st.sidebar.success("Order deleted successfully!")
