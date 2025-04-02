@@ -42,15 +42,10 @@ def connect_to_gsheets():
 def save_data_to_gsheets(dataframe):
     sheet = connect_to_gsheets()
     if sheet:
-        # Konwersja wszystkich danych na tekst, żeby uniknąć błędów JSON
+        # Konwersja wszystkich danych na tekst
         dataframe = dataframe.astype(str)
-        
-        # Czyszczenie arkusza przed aktualizacją
         sheet.clear()
-        
-        # Wgranie danych do arkusza
         sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
-
 
 # Funkcja ładowania danych z Google Sheets
 def load_data_from_gsheets():
@@ -98,8 +93,6 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-    # Formularz dodawania nowych danych produkcyjnych
-    st.sidebar.header("➕ Add New Production Entry")
     with st.sidebar.form("production_form"):
         date = st.date_input("Production Date", value=datetime.date.today())
         company = st.text_input("Company Name")
@@ -126,7 +119,33 @@ else:
             save_data_to_gsheets(df)
             st.sidebar.success("Production entry saved successfully.")
 
-    # Zakładki z danymi i wykresami
+    with st.sidebar:
+        if st.session_state.user['Role'] == 'Admin':
+            st.header("✏️ Edit or Delete Entry")
+
+            if not df.empty:
+                selected_index = st.selectbox("Select Entry to Edit", df.index)
+                
+                if selected_index is not None:
+                    selected_row = df.loc[selected_index]
+                    
+                    with st.form("edit_form"):
+                        company = st.text_input("Edit Company Name", value=selected_row['Company'])
+                        seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
+                        update_button = st.form_submit_button("Update Entry")
+                        delete_button = st.form_submit_button("Delete Entry")
+
+                        if update_button:
+                            df.at[selected_index, 'Company'] = company
+                            df.at[selected_index, 'Seal Count'] = seals_count
+                            save_data_to_gsheets(df)
+                            st.success("Entry updated successfully!")
+
+                        if delete_button:
+                            df = df.drop(selected_index)
+                            save_data_to_gsheets(df)
+                            st.success("Entry deleted successfully!")
+
     tab1, tab2 = st.tabs(["📊 Production Data", "📈 Production Charts"])
 
     with tab1:
