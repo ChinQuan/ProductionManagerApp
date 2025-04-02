@@ -164,12 +164,16 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
     st.sidebar.header("✏️ Edit or Delete Orders")
 
     if not df.empty:
+        # ✅ Konwersja kolumny 'Date' do typu datetime
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        
         selected_index = st.sidebar.selectbox("Select Order to Edit", df.index)
         
         if selected_index is not None:
             selected_row = df.loc[selected_index]
             
             with st.form("edit_order_form"):
+                # ✅ Przekształcamy datę na format datetime.date()
                 date = st.date_input("Edit Production Date", value=pd.to_datetime(selected_row['Date']).date())
                 company = st.text_input("Edit Company Name", value=selected_row['Company'])
                 operator = st.text_input("Edit Operator", value=selected_row['Operator'])
