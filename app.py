@@ -3,27 +3,51 @@ import pandas as pd
 import os
 import datetime
 import plotly.express as px
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
 st.title("Production Manager App")
 
-# Ścieżki plików
-current_dir = os.getcwd()
-DATA_FILE = os.path.join(current_dir, 'Production_orders.csv')
-USERS_FILE = os.path.join(current_dir, 'users.xlsx')
-
 # Inicjalizacja stanu sesji
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# Funkcja ładowania użytkowników z pliku
+# Funkcja połączenia z Google Sheets
+def connect_to_gsheets():
+    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
+             "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+
+    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    client = gspread.authorize(creds)
+
+    # Podaj nazwę arkusza, który stworzyłeś na Google Drive
+    sheet = client.open("ProductionManagerApp").sheet1
+    return sheet
+
+# Funkcja zapisywania danych do Google Sheets
+def save_data_to_gsheets(dataframe):
+    sheet = connect_to_gsheets()
+    sheet.clear()
+    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+
+# Funkcja ładowania danych z Google Sheets
+def load_data_from_gsheets():
+    sheet = connect_to_gsheets()
+    data = sheet.get_all_records()
+    if data:
+        return pd.DataFrame(data)
+    else:
+        return pd.DataFrame(columns=['Date', 'Company', 'Seal Count', 'Operator', 'Seal Type', 'Production Time', 'Downtime', 'Reason for Downtime'])
+
+# Funkcja ładowania użytkowników
 def load_users():
     try:
-        return pd.read_excel(USERS_FILE, sheet_name='Users')
+        return pd.read_excel('users.xlsx', sheet_name='Users')
     except FileNotFoundError:
         users = pd.DataFrame({'Username': ['admin'], 'Password': ['admin'], 'Role': ['Admin']})
-        users.to_excel(USERS_FILE, sheet_name='Users', index=False)
+        users.to_excel('users.xlsx', sheet_name='Users', index=False)
         return users
 
 # Funkcja logowania
@@ -33,23 +57,9 @@ def login(username, password, users_df):
         return user.iloc[0]
     return None
 
-# Funkcja ładowania danych produkcyjnych
-def load_data():
-    if os.path.exists(DATA_FILE):
-        df = pd.read_csv(DATA_FILE)
-        if 'Date' in df.columns:
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
-        return df
-    else:
-        return pd.DataFrame(columns=['Date', 'Company', 'Seal Count', 'Operator', 'Seal Type', 'Production Time', 'Downtime', 'Reason for Downtime'])
-
-# Funkcja zapisywania danych
-def save_data(df):
-    df.to_csv(DATA_FILE, index=False)
-
 # Wczytanie użytkowników i danych produkcyjnych
 users_df = load_users()
-df = load_data()
+df = load_data_from_gsheets()
 
 # Panel logowania
 if st.session_state.user is None:
@@ -68,7 +78,7 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-            # Formularz dodawania nowych danych produkcyjnych
+    # Formularz dodawania nowych danych produkcyjnych
     st.sidebar.header("➕ Add New Production Entry")
     with st.sidebar.form("production_form"):
         date = st.date_input("Production Date", value=datetime.date.today())
@@ -93,7 +103,7 @@ else:
                 'Reason for Downtime': downtime_reason
             }
             df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-            save_data(df)
+            save_data_to_gsheets(df)
             st.sidebar.success("Production entry saved successfully.")
 
     # Zakładki z danymi i wykresami
@@ -115,4 +125,3 @@ else:
 
             fig = px.bar(df, x='Operator', y='Seal Count', title='Production by Operator')
             st.plotly_chart(fig)
-
