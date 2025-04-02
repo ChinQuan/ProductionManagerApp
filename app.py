@@ -93,7 +93,7 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-    with st.sidebar.form("production_form"):
+        with st.sidebar.form("production_form"):
         date = st.date_input("Production Date", value=datetime.date.today())
         company = st.text_input("Company Name")
         operator = st.text_input("Operator", value=st.session_state.user['Username'])
@@ -117,7 +117,7 @@ else:
             }
             df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
             save_data_to_gsheets(df)
-            st.sidebar.success("Production entry saved successfully.")
+            st.sidebar.success("Production entry saved successfully!")
 
     with st.sidebar:
         if st.session_state.user['Role'] == 'Admin':
@@ -132,12 +132,17 @@ else:
                     with st.form("edit_form"):
                         company = st.text_input("Edit Company Name", value=selected_row['Company'])
                         seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
+                        
+                        # 📌 Dodajemy edycję Production Time
+                        production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
+                        
                         update_button = st.form_submit_button("Update Entry")
                         delete_button = st.form_submit_button("Delete Entry")
 
                         if update_button:
                             df.at[selected_index, 'Company'] = company
                             df.at[selected_index, 'Seal Count'] = seals_count
+                            df.at[selected_index, 'Production Time'] = production_time  # 📌 Zapisujemy nową wartość Production Time
                             save_data_to_gsheets(df)
                             st.success("Entry updated successfully!")
 
