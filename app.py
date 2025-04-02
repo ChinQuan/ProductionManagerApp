@@ -236,4 +236,3 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
                     df = df.drop(selected_index)
                     save_data_to_gsheets(df)
                     st.sidebar.success("Order deleted successfully!")
-
