@@ -179,14 +179,13 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
             with st.form("edit_order_form"):
                 # ✅ Konwertujemy datę na `datetime.date()` lub ustawiamy na dzisiejszą datę jeśli jest błędna
                 selected_date = pd.to_datetime(selected_row['Date'], errors='coerce')
+                
+                if isinstance(selected_date, pd.Timestamp):
+                    date_value = selected_date.date()  # Prawidłowa data
+                else:
+                    date_value = date.today()  # Ustawiamy dzisiejszą datę, jeśli jest błędna
 
-if isinstance(selected_date, pd.Timestamp):
-    date_value = selected_date.date()  # Prawidłowa data
-else:
-    date_value = date.today()  # Ustawiamy dzisiejszą datę, jeśli jest błędna
-
-date = st.date_input("Edit Production Date", value=date_value)
-
+                date = st.date_input("Edit Production Date", value=date_value)
                 company = st.text_input("Edit Company Name", value=selected_row['Company'])
                 operator = st.text_input("Edit Operator", value=selected_row['Operator'])
                 seal_type = st.selectbox(
@@ -218,4 +217,3 @@ date = st.date_input("Edit Production Date", value=date_value)
                     df = df.drop(selected_index)
                     save_data_to_gsheets(df)
                     st.sidebar.success("Order deleted successfully!")
-
