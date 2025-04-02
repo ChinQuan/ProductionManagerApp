@@ -11,6 +11,7 @@ from modules.reports import show_reports
 from modules.charts import show_charts
 from modules.backup import show_backup_option
 from modules.user_management import show_user_management
+from modules.average_time import calculate_average_time
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
@@ -110,7 +111,7 @@ if st.session_state.user is not None:
         date = st.date_input("Production Date", value=datetime.date.today())
         company = st.text_input("Company Name")
         operator = st.text_input("Operator", value=st.session_state.user['Username'])
-        seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'])
+        seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'])
         seals_count = st.number_input("Number of Seals", min_value=0, step=1)
         production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
         downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1)
@@ -133,7 +134,9 @@ if st.session_state.user is not None:
             st.sidebar.success("Order saved successfully!")
 
     # Zakładki
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Production Charts", "User Management", "Reports", "Backup"])
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time"
+    ])
 
     with tab1:
         st.header("📊 Production Data Overview")
@@ -152,7 +155,10 @@ if st.session_state.user is not None:
 
     with tab5:
         show_backup_option(df, save_data_to_gsheets)
-        # ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
+
+    with tab6:
+        calculate_average_time(df)
+# ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
 if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
     st.sidebar.header("✏️ Edit or Delete Orders")
 
@@ -168,8 +174,8 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
                 operator = st.text_input("Edit Operator", value=selected_row['Operator'])
                 seal_type = st.selectbox(
                     "Edit Seal Type", 
-                    ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'], 
-                    index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'].index(selected_row['Seal Type'])
+                    ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'], 
+                    index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'].index(selected_row['Seal Type'])
                 )
                 seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
                 production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
@@ -195,4 +201,3 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
                     df = df.drop(selected_index)
                     save_data_to_gsheets(df)
                     st.sidebar.success("Order deleted successfully!")
-
