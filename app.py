@@ -144,6 +144,7 @@ if st.session_state.user is not None:
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time"
     ])
+
 with tab1:
     st.header("📊 Production Data Overview")
     
