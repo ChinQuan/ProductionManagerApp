@@ -46,7 +46,7 @@ if menu == 'Home':
                 'Downtime': downtime,
                 'Reason for Downtime': downtime_reason
             }
-            df = df.append(new_entry, ignore_index=True)
+            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
             save_data(df)
             st.sidebar.success("Production entry saved successfully.")
 
