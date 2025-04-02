@@ -16,32 +16,43 @@ if 'user' not in st.session_state:
 
 # Funkcja połączenia z Google Sheets
 def connect_to_gsheets():
-    scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
-             "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive"
+    ]
 
     # Pobieranie danych z secrets.toml
     credentials = st.secrets["gcp_service_account"]
+    
+    # Konfiguracja poświadczeń
     creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
     client = gspread.authorize(creds)
 
-    # Otwieranie arkusza Google
-    sheet = client.open("ProductionManagerApp").sheet1  # Podaj nazwę swojego arkusza Google
-    return sheet
+    # Otwieranie arkusza Google (upewnij się, że nazwa arkusza jest poprawna!)
+    try:
+        sheet = client.open("ProductionManagerApp").sheet1  # Podaj dokładną nazwę swojego arkusza
+        return sheet
+    except Exception as e:
+        st.error(f"❌ Błąd podczas łączenia z arkuszem Google: {e}")
+        return None
 
 # Funkcja zapisywania danych do Google Sheets
 def save_data_to_gsheets(dataframe):
     sheet = connect_to_gsheets()
-    sheet.clear()
-    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+    if sheet:
+        sheet.clear()
+        sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
 
 # Funkcja ładowania danych z Google Sheets
 def load_data_from_gsheets():
     sheet = connect_to_gsheets()
-    data = sheet.get_all_records()
-    if data:
-        return pd.DataFrame(data)
-    else:
-        return pd.DataFrame(columns=['Date', 'Company', 'Seal Count', 'Operator', 'Seal Type', 'Production Time', 'Downtime', 'Reason for Downtime'])
+    if sheet:
+        data = sheet.get_all_records()
+        if data:
+            return pd.DataFrame(data)
+    return pd.DataFrame(columns=['Date', 'Company', 'Seal Count', 'Operator', 'Seal Type', 'Production Time', 'Downtime', 'Reason for Downtime'])
 
 # Funkcja ładowania użytkowników
 def load_users():
