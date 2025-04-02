@@ -6,6 +6,11 @@ import plotly.express as px
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
+# Importujemy nasze moduły
+from modules.reports import show_reports
+from modules.charts import show_charts
+from modules.backup import show_backup_option
+
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
 st.title("Production Manager App")
@@ -40,7 +45,6 @@ def load_users():
     except Exception as e:
         st.error(f"❌ Błąd podczas ładowania użytkowników: {e}")
     return pd.DataFrame(columns=['Username', 'Password', 'Role'])
-
 # Funkcja zapisywania użytkowników do Google Sheets
 def save_users_to_gsheets(users_df):
     client = connect_to_gsheets()
@@ -97,7 +101,7 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-# Formularz dodawania nowych wpisów – dostępny dla wszystkich zalogowanych użytkowników (Admin + Operator)
+# Formularz dodawania nowych wpisów
 if st.session_state.user is not None:
     st.sidebar.header("➕ Add New Order")
 
@@ -128,7 +132,7 @@ if st.session_state.user is not None:
             st.sidebar.success("Order saved successfully!")
 
     # Zakładki
-    tab1, tab2, tab3 = st.tabs(["Home", "Production Charts", "User Management"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Production Charts", "User Management", "Reports", "Backup"])
 
     with tab1:
         st.header("📊 Production Data Overview")
@@ -136,88 +140,15 @@ if st.session_state.user is not None:
             st.dataframe(df)
 
     with tab2:
-        st.header("📈 Production Charts")
-        if not df.empty:
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-            fig = px.line(df, x='Date', y='Seal Count', title='Daily Production Trend')
-            st.plotly_chart(fig)
+        show_charts(df)
 
-            fig2 = px.bar(df, x='Company', y='Seal Count', title='Production by Company')
-            st.plotly_chart(fig2)
-
-            fig3 = px.bar(df, x='Operator', y='Seal Count', title='Production by Operator')
-            st.plotly_chart(fig3)
-
-            fig4 = px.bar(df, x='Seal Type', y='Seal Count', title='Production by Seal Type')
-            st.plotly_chart(fig4)
     with tab3:
         if st.session_state.user['Role'] == 'Admin':
             st.header("👥 User Management")
+            st.dataframe(users_df)
 
-            if not users_df.empty:
-                st.dataframe(users_df)
+    with tab4:
+        show_reports(df)
 
-            st.subheader("Add New User")
-            with st.form("add_user_form"):
-                new_username = st.text_input("New Username")
-                new_password = st.text_input("New Password")
-                new_role = st.selectbox("Role", ["Admin", "Operator"])
-                add_user_btn = st.form_submit_button("Add User")
-
-            if add_user_btn:
-                new_user = pd.DataFrame([[new_username, new_password, new_role]], columns=['Username', 'Password', 'Role'])
-                users_df = pd.concat([users_df, new_user], ignore_index=True)
-                save_users_to_gsheets(users_df)
-                st.success("User added successfully!")
-
-            st.subheader("Delete User")
-            if not users_df.empty:
-                user_to_delete = st.selectbox("Select User to Delete", users_df['Username'])
-                if st.button("Delete User"):
-                    users_df = users_df[users_df['Username'] != user_to_delete]
-                    save_users_to_gsheets(users_df)
-                    st.success("User deleted successfully!")
-
-    # ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
-    if st.session_state.user['Role'] == 'Admin':
-        st.sidebar.header("✏️ Edit or Delete Orders")
-
-        if not df.empty:
-            selected_index = st.sidebar.selectbox("Select Order to Edit", df.index)
-            
-            if selected_index is not None:
-                selected_row = df.loc[selected_index]
-                
-                with st.form("edit_order_form"):
-                    date = st.date_input("Edit Production Date", value=pd.to_datetime(selected_row['Date']).date())
-                    company = st.text_input("Edit Company Name", value=selected_row['Company'])
-                    operator = st.text_input("Edit Operator", value=selected_row['Operator'])
-                    seal_type = st.selectbox(
-                        "Edit Seal Type", 
-                        ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'], 
-                        index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'].index(selected_row['Seal Type'])
-                    )
-                    seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
-                    production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
-                    downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']))
-                    downtime_reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'])
-
-                    update_button = st.form_submit_button("Update Order")
-                    delete_button = st.form_submit_button("Delete Order")
-
-                    if update_button:
-                        df.at[selected_index, 'Date'] = date
-                        df.at[selected_index, 'Company'] = company
-                        df.at[selected_index, 'Operator'] = operator
-                        df.at[selected_index, 'Seal Type'] = seal_type
-                        df.at[selected_index, 'Seal Count'] = seals_count
-                        df.at[selected_index, 'Production Time'] = production_time
-                        df.at[selected_index, 'Downtime'] = downtime
-                        df.at[selected_index, 'Reason for Downtime'] = downtime_reason
-                        save_data_to_gsheets(df)
-                        st.sidebar.success("Order updated successfully!")
-
-                    if delete_button:
-                        df = df.drop(selected_index)
-                        save_data_to_gsheets(df)
-                        st.sidebar.success("Order deleted successfully!")
+    with tab5:
+        show_backup_option(df, save_data_to_gsheets)
