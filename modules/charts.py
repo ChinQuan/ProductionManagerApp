@@ -6,9 +6,9 @@ def show_charts(df):
     st.header("📈 Production Charts")
 
     if not df.empty:
-        # ✅ Upewniamy się, że kolumna 'Date' jest w formacie datetime
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # Usunięcie godzin, zostaje tylko data
-
+        # ✅ Konwersja kolumny 'Date' do formatu datetime i wyciągnięcie tylko daty
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+        
         # 🔍 Wykres trendu dziennej produkcji
         daily_production = df.groupby('Date')['Seal Count'].sum().reset_index()
         
@@ -19,7 +19,12 @@ def show_charts(df):
             title='Daily Production Trend',
             markers=True
         )
-        fig.update_layout(xaxis_title="Date", yaxis_title="Seal Count")
+        fig.update_layout(
+            xaxis_title="Date", 
+            yaxis_title="Seal Count",
+            xaxis_type='category',  # 🔥 Traktowanie dat jako kategorie
+            xaxis_tickformat='%Y-%m-%d'  # 🔥 Formatowanie osi X, by pokazywać tylko daty
+        )
         st.plotly_chart(fig)
 
         # 🔍 Wykres produkcji wg firmy
