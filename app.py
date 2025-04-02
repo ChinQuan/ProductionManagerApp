@@ -95,7 +95,13 @@ else:
     with st.sidebar.form("production_form"):
         date = st.date_input("Production Date", value=datetime.date.today())
         company = st.text_input("Company Name")
-        operator = st.text_input("Operator", value=st.session_state.user['Username'])
+        
+        if 'user' in st.session_state and st.session_state.user is not None:
+            operator_name = st.session_state.user['Username']
+        else:
+            operator_name = ""  # Jeśli użytkownik nie jest zalogowany
+        
+        operator = st.text_input("Operator", value=operator_name)
         seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'])
         seals_count = st.number_input("Number of Seals", min_value=0, step=1)
         production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
@@ -118,7 +124,7 @@ else:
             save_data_to_gsheets(df)
             st.sidebar.success("Production entry saved successfully!")
 
-    if st.session_state.user['Role'] == 'Admin':
+    if st.session_state.user and st.session_state.user['Role'] == 'Admin':
         st.sidebar.header("✏️ Edit or Delete Entry")
 
         if not df.empty:
@@ -152,22 +158,3 @@ else:
                         df = df.drop(selected_index)
                         save_data_to_gsheets(df)
                         st.success("Entry deleted successfully!")
-
-    tab1, tab2 = st.tabs(["📊 Production Data", "📈 Production Charts"])
-
-    with tab1:
-        st.header("📊 Production Data Overview")
-        if not df.empty:
-            st.dataframe(df)
-
-    with tab2:
-        st.header("📈 Production Charts")
-        if not df.empty:
-            fig = px.line(df, x='Date', y='Seal Count', title='Daily Production Trend')
-            st.plotly_chart(fig)
-
-            fig = px.bar(df, x='Company', y='Seal Count', title='Production by Company')
-            st.plotly_chart(fig)
-
-            fig = px.bar(df, x='Operator', y='Seal Count', title='Production by Operator')
-            st.plotly_chart(fig)
