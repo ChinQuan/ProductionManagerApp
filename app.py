@@ -42,7 +42,6 @@ def connect_to_gsheets():
 def save_data_to_gsheets(dataframe):
     sheet = connect_to_gsheets()
     if sheet:
-        # Konwersja wszystkich danych na tekst
         dataframe = dataframe.astype(str)
         sheet.clear()
         sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
@@ -93,7 +92,7 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-        with st.sidebar.form("production_form"):
+    with st.sidebar.form("production_form"):
         date = st.date_input("Production Date", value=datetime.date.today())
         company = st.text_input("Company Name")
         operator = st.text_input("Operator", value=st.session_state.user['Username'])
@@ -119,37 +118,40 @@ else:
             save_data_to_gsheets(df)
             st.sidebar.success("Production entry saved successfully!")
 
-    with st.sidebar:
-        if st.session_state.user['Role'] == 'Admin':
-            st.header("✏️ Edit or Delete Entry")
+    if st.session_state.user['Role'] == 'Admin':
+        st.sidebar.header("✏️ Edit or Delete Entry")
 
-            if not df.empty:
-                selected_index = st.selectbox("Select Entry to Edit", df.index)
+        if not df.empty:
+            selected_index = st.sidebar.selectbox("Select Entry to Edit", df.index)
+            
+            if selected_index is not None:
+                selected_row = df.loc[selected_index]
                 
-                if selected_index is not None:
-                    selected_row = df.loc[selected_index]
-                    
-                    with st.form("edit_form"):
-                        company = st.text_input("Edit Company Name", value=selected_row['Company'])
-                        seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
-                        
-                        # 📌 Dodajemy edycję Production Time
-                        production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
-                        
-                        update_button = st.form_submit_button("Update Entry")
-                        delete_button = st.form_submit_button("Delete Entry")
+                with st.form("edit_form"):
+                    date = st.date_input("Edit Production Date", value=pd.to_datetime(selected_row['Date']).date())
+                    company = st.text_input("Edit Company Name", value=selected_row['Company'])
+                    seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
+                    production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
+                    downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']))
+                    downtime_reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'])
 
-                        if update_button:
-                            df.at[selected_index, 'Company'] = company
-                            df.at[selected_index, 'Seal Count'] = seals_count
-                            df.at[selected_index, 'Production Time'] = production_time  # 📌 Zapisujemy nową wartość Production Time
-                            save_data_to_gsheets(df)
-                            st.success("Entry updated successfully!")
+                    update_button = st.form_submit_button("Update Entry")
+                    delete_button = st.form_submit_button("Delete Entry")
 
-                        if delete_button:
-                            df = df.drop(selected_index)
-                            save_data_to_gsheets(df)
-                            st.success("Entry deleted successfully!")
+                    if update_button:
+                        df.at[selected_index, 'Date'] = date
+                        df.at[selected_index, 'Company'] = company
+                        df.at[selected_index, 'Seal Count'] = seals_count
+                        df.at[selected_index, 'Production Time'] = production_time
+                        df.at[selected_index, 'Downtime'] = downtime
+                        df.at[selected_index, 'Reason for Downtime'] = downtime_reason
+                        save_data_to_gsheets(df)
+                        st.success("Entry updated successfully!")
+
+                    if delete_button:
+                        df = df.drop(selected_index)
+                        save_data_to_gsheets(df)
+                        st.success("Entry deleted successfully!")
 
     tab1, tab2 = st.tabs(["📊 Production Data", "📈 Production Charts"])
 
