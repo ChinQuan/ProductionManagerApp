@@ -147,26 +147,27 @@ if st.session_state.user is not None:
     ])
 
     with tab1:
-    st.header("📊 Production Data Overview")
-    if not df.empty:
-        # ✅ Konwersja kolumny 'Date' do formatu datetime
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-
-        # 📈 Obliczanie średniej produkcji dziennej
-        total_seals = df['Seal Count'].sum()
-        total_days = (df['Date'].max() - df['Date'].min()).days + 1  # Dodajemy 1, żeby wliczyć oba końce zakresu
+        st.header("📊 Production Data Overview")
         
-        if total_days > 0:
-            average_daily_production = total_seals / total_days
-        else:
-            average_daily_production = 0
+        if not df.empty:
+            # ✅ Konwersja 'Date' do formatu datetime
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
-        # 💪 Wyświetlanie średniej produkcji dziennej
-        st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
+            # 📈 Obliczanie średniej produkcji dziennej
+            total_seals = df['Seal Count'].sum()
+            total_days = (df['Date'].max() - df['Date'].min()).days + 1
+            
+            if total_days > 0:
+                average_daily_production = total_seals / total_days
+            else:
+                average_daily_production = 0
 
-        # 🔥 Konwersja 'Date' na string przed wyświetleniem, żeby uniknąć błędów PyArrow
-        df['Date'] = df['Date'].astype(str)
-        st.dataframe(df)
+            # 💪 Wyświetlanie średniej produkcji dziennej
+            st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
+
+            # 🔥 Konwersja 'Date' na string przed wyświetleniem
+            df['Date'] = df['Date'].astype(str)
+            st.dataframe(df)
 
     with tab2:
         show_charts(df)
@@ -189,7 +190,6 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
     st.sidebar.header("✏️ Edit or Delete Orders")
 
     if not df.empty:
-        # ✅ Konwersja kolumny 'Date' do typu datetime
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         
         selected_index = st.sidebar.selectbox("Select Order to Edit", df.index)
@@ -198,12 +198,11 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
             selected_row = df.loc[selected_index]
             
             with st.form("edit_order_form"):
-                # ✅ Bezpieczna konwersja daty
                 selected_date = pd.to_datetime(selected_row['Date'], errors='coerce')
                 if isinstance(selected_date, pd.Timestamp):
                     date_value = selected_date.date()
                 else:
-                    date_value = date.today()
+                    date_value = datetime.date.today()
 
                 date = st.date_input("Edit Production Date", value=date_value)
                 company = st.text_input("Edit Company Name", value=selected_row['Company'])
