@@ -5,6 +5,7 @@ import datetime
 import plotly.express as px
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+from datetime import date
 
 # Importowanie modułów
 from modules.reports import show_reports
@@ -86,6 +87,9 @@ def login(username, password, users_df):
 users_df = load_users()
 df = load_data_from_gsheets()
 
+# ✅ Konwersja kolumny 'Date' do datetime
+df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+
 # Panel logowania
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
@@ -103,7 +107,7 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-# Formularz dodawania nowych wpisów
+        # Formularz dodawania nowych wpisów
 if st.session_state.user is not None:
     st.sidebar.header("➕ Add New Order")
 
@@ -164,7 +168,7 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
     st.sidebar.header("✏️ Edit or Delete Orders")
 
     if not df.empty:
-        # ✅ Konwersja kolumny 'Date' do typu datetime
+        # ✅ Konwersja kolumny 'Date' do typu datetime (jeśli jeszcze nie była przekształcona)
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         
         selected_index = st.sidebar.selectbox("Select Order to Edit", df.index)
@@ -173,8 +177,12 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
             selected_row = df.loc[selected_index]
             
             with st.form("edit_order_form"):
-                # ✅ Przekształcamy datę na format datetime.date()
-                date = st.date_input("Edit Production Date", value=pd.to_datetime(selected_row['Date']).date())
+                # ✅ Konwertujemy datę na `datetime.date()` lub ustawiamy na dzisiejszą datę jeśli jest błędna
+                selected_date = pd.to_datetime(selected_row['Date'], errors='coerce')
+                if pd.isna(selected_date):
+                    selected_date = date.today()
+
+                date = st.date_input("Edit Production Date", value=selected_date.date())
                 company = st.text_input("Edit Company Name", value=selected_row['Company'])
                 operator = st.text_input("Edit Operator", value=selected_row['Operator'])
                 seal_type = st.selectbox(
@@ -206,3 +214,4 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
                     df = df.drop(selected_index)
                     save_data_to_gsheets(df)
                     st.sidebar.success("Order deleted successfully!")
+
