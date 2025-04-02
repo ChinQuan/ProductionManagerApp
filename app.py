@@ -92,18 +92,12 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-# Formularz dodawania nowych wpisów
 if st.session_state.user is not None:
+    # Formularz dodawania nowych wpisów
     with st.sidebar.form("production_form"):
         date = st.date_input("Production Date", value=datetime.date.today())
         company = st.text_input("Company Name")
-        
-        if 'user' in st.session_state and st.session_state.user is not None:
-            operator_name = st.session_state.user['Username']
-        else:
-            operator_name = ""  
-        
-        operator = st.text_input("Operator", value=operator_name)
+        operator = st.text_input("Operator", value=st.session_state.user['Username'])
         seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings'])
         seals_count = st.number_input("Number of Seals", min_value=0, step=1)
         production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
@@ -126,26 +120,26 @@ if st.session_state.user is not None:
             save_data_to_gsheets(df)
             st.sidebar.success("Production entry saved successfully!")
 
-# Zakładki
-tab1, tab2 = st.tabs(["Home", "Production Charts"])
+    # Zakładki
+    tab1, tab2 = st.tabs(["Home", "Production Charts"])
 
-with tab1:
-    st.header("📊 Production Data Overview")
-    if not df.empty:
-        st.dataframe(df)
-    else:
-        st.write("No data available. Please add some entries.")
+    with tab1:
+        st.header("📊 Production Data Overview")
+        if not df.empty:
+            st.dataframe(df)
 
-with tab2:
-    st.header("📈 Production Charts")
-    if not df.empty:
-        try:
+    with tab2:
+        st.header("📈 Production Charts")
+        if not df.empty:
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-            fig = px.line(df, x='Date', y='Seal Count', title='Daily Production Trend')
-            st.plotly_chart(fig)
-        except Exception as e:
-            st.error(f"❌ Error generating charts: {e}")
+            fig1 = px.line(df, x='Date', y='Seal Count', title='Daily Production Trend')
+            st.plotly_chart(fig1)
 
-# Sprawdzenie czy user jest Adminem
-if 'user' in st.session_state and st.session_state.user is not None and st.session_state.user.get('Role', '') == 'Admin':
-    st.sidebar.header("✏️ Edit or Delete Entry")
+            fig2 = px.bar(df, x='Company', y='Seal Count', title='Production by Company')
+            st.plotly_chart(fig2)
+
+            fig3 = px.bar(df, x='Operator', y='Seal Count', title='Production by Operator')
+            st.plotly_chart(fig3)
+
+            fig4 = px.bar(df, x='Seal Type', y='Seal Count', title='Production by Seal Type')
+            st.plotly_chart(fig4)
