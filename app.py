@@ -135,7 +135,7 @@ if st.session_state.user is not None:
     # Zakładki
     tab1, tab2, tab3, tab4, tab5 = st.tabs(["Home", "Production Charts", "User Management", "Reports", "Backup"])
 
-    with tab1:
+        with tab1:
         st.header("📊 Production Data Overview")
         if not df.empty:
             st.dataframe(df)
@@ -152,3 +152,5 @@ if st.session_state.user is not None:
 
     with tab5:
         show_backup_option(df, save_data_to_gsheets)
+
+    # ⬇️ Wklej tutaj kod do edycji zleceń (ten z poprzedniej wiadomości)
