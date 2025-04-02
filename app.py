@@ -19,11 +19,13 @@ def connect_to_gsheets():
     scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/spreadsheets",
              "https://www.googleapis.com/auth/drive.file", "https://www.googleapis.com/auth/drive"]
 
-    creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+    # Pobieranie danych z secrets.toml
+    credentials = st.secrets["gcp_service_account"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
     client = gspread.authorize(creds)
 
-    # Podaj nazwę arkusza, który stworzyłeś na Google Drive
-    sheet = client.open("ProductionManagerApp").sheet1
+    # Otwieranie arkusza Google
+    sheet = client.open("ProductionManagerApp").sheet1  # Podaj nazwę swojego arkusza Google
     return sheet
 
 # Funkcja zapisywania danych do Google Sheets
