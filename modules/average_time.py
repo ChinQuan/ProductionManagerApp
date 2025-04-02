@@ -26,13 +26,17 @@ def calculate_average_time(df):
             total_seals_count = filtered_df['Seal Count'].sum()
 
             if total_seals_count > 0:
-                average_time = total_production_time / total_seals_count
-                average_times[seal_type] = average_time
+                average_time_per_seal = total_production_time / total_seals_count
+                seals_per_minute = 1 / average_time_per_seal if average_time_per_seal > 0 else 0
+                average_times[seal_type] = (average_time_per_seal, seals_per_minute)
             else:
-                average_times[seal_type] = None
+                average_times[seal_type] = (None, None)
         else:
-            average_times[seal_type] = None
+            average_times[seal_type] = (None, None)
 
     # Wyświetlamy wyniki w tabeli
-    result_df = pd.DataFrame(list(average_times.items()), columns=['Seal Type', 'Average Time per Seal (min)'])
+    result_df = pd.DataFrame(
+        [(seal_type, at[0], at[1]) for seal_type, at in average_times.items()],
+        columns=['Seal Type', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
+    )
     st.table(result_df)
