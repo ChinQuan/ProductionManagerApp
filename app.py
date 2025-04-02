@@ -158,6 +158,7 @@ if st.session_state.user is not None:
 
     with tab6:
         calculate_average_time(df)
+
 # ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
 if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
     st.sidebar.header("✏️ Edit or Delete Orders")
