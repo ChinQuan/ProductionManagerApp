@@ -42,8 +42,15 @@ def connect_to_gsheets():
 def save_data_to_gsheets(dataframe):
     sheet = connect_to_gsheets()
     if sheet:
+        # Konwersja wszystkich danych na tekst, żeby uniknąć błędów JSON
+        dataframe = dataframe.astype(str)
+        
+        # Czyszczenie arkusza przed aktualizacją
         sheet.clear()
+        
+        # Wgranie danych do arkusza
         sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+
 
 # Funkcja ładowania danych z Google Sheets
 def load_data_from_gsheets():
