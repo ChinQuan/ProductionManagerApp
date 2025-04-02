@@ -124,8 +124,8 @@ else:
             save_data_to_gsheets(df)
             st.sidebar.success("Production entry saved successfully!")
 
-    # Sprawdzamy poprawnie, czy user istnieje i jest Adminem
-    if 'user' in st.session_state and st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
+    # Poprawiony sposób sprawdzania, czy użytkownik jest Adminem
+    if 'user' in st.session_state and st.session_state.user is not None and st.session_state.user.get('Role', '') == 'Admin':
         st.sidebar.header("✏️ Edit or Delete Entry")
 
         if not df.empty:
