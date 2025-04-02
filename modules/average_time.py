@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime, timedelta
 
 def calculate_average_time(df):
     st.header("⏳ Average Production Time Analysis")
@@ -8,91 +9,108 @@ def calculate_average_time(df):
         st.write("No data available to calculate average production time.")
         return
 
-    # Sprawdzamy, czy kolumny istnieją
-    if 'Seal Type' not in df.columns or 'Company' not in df.columns or 'Operator' not in df.columns:
-        st.write("Required columns not found in data.")
+    if 'Date' not in df.columns:
+        st.write("Date column not found in data.")
         return
 
-    seal_types = ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special']
+    # Konwersja kolumny 'Date' do formatu datetime
+    df['Date'] = pd.to_datetime(df['Date'])
+
+    # 📅 Opcje wyboru przedziału czasowego
+    st.sidebar.header("📅 Filter by Date Range")
+    date_filter = st.sidebar.selectbox(
+        "Select Date Range",
+        ["Last Week", "Last Month", "Last Year", "Custom Range"]
+    )
+
+    if date_filter == "Last Week":
+        start_date = datetime.now() - timedelta(weeks=1)
+        end_date = datetime.now()
+    elif date_filter == "Last Month":
+        start_date = datetime.now() - timedelta(days=30)
+        end_date = datetime.now()
+    elif date_filter == "Last Year":
+        start_date = datetime.now() - timedelta(days=365)
+        end_date = datetime.now()
+    else:
+        start_date = st.sidebar.date_input("Start Date", value=datetime.now() - timedelta(days=30))
+        end_date = st.sidebar.date_input("End Date", value=datetime.now())
+    
+    # Filtrujemy dane na podstawie wybranego przedziału czasowego
+    filtered_df = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+
+    if filtered_df.empty:
+        st.write("No data available for the selected date range.")
+        return
+
+    # 📊 Dalej obliczamy dane jak wcześniej
+    st.write(f"Showing data from **{start_date.date()}** to **{end_date.date()}**")
+
+    # Analiza na podstawie typu uszczelki
+    seal_types = filtered_df['Seal Type'].unique()
     average_times = {}
 
-    # ✅ Analiza na podstawie typu uszczelki
     for seal_type in seal_types:
-        filtered_df = df[df['Seal Type'] == seal_type]
+        filtered_type_df = filtered_df[filtered_df['Seal Type'] == seal_type]
+        total_time = filtered_type_df['Production Time'].sum()
+        total_seals = filtered_type_df['Seal Count'].sum()
 
-        if not filtered_df.empty:
-            total_production_time = filtered_df['Production Time'].sum()
-            total_seals_count = filtered_df['Seal Count'].sum()
-
-            if total_seals_count > 0:
-                average_time_per_seal = total_production_time / total_seals_count
-                seals_per_minute = 1 / average_time_per_seal if average_time_per_seal > 0 else 0
-                average_times[seal_type] = (average_time_per_seal, seals_per_minute)
-            else:
-                average_times[seal_type] = (None, None)
+        if total_seals > 0:
+            avg_time = total_time / total_seals
+            seals_per_minute = 1 / avg_time if avg_time > 0 else 0
+            average_times[seal_type] = (avg_time, seals_per_minute)
         else:
             average_times[seal_type] = (None, None)
 
-    # ✅ Wyświetlanie wyników dla typu uszczelek
     st.subheader("📊 By Seal Type")
     result_df = pd.DataFrame(
-        [(seal_type, at[0], at[1]) for seal_type, at in average_times.items()],
+        [(seal_type, avg[0], avg[1]) for seal_type, avg in average_times.items()],
         columns=['Seal Type', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
     )
     st.table(result_df)
 
-    # ✅ Analiza na podstawie firmy
-    companies = df['Company'].unique()
+    # Analiza na podstawie firmy
+    companies = filtered_df['Company'].unique()
     company_times = {}
 
     for company in companies:
-        filtered_df = df[df['Company'] == company]
+        filtered_company_df = filtered_df[filtered_df['Company'] == company]
+        total_time = filtered_company_df['Production Time'].sum()
+        total_seals = filtered_company_df['Seal Count'].sum()
 
-        if not filtered_df.empty:
-            total_production_time = filtered_df['Production Time'].sum()
-            total_seals_count = filtered_df['Seal Count'].sum()
-
-            if total_seals_count > 0:
-                average_time_per_seal = total_production_time / total_seals_count
-                seals_per_minute = 1 / average_time_per_seal if average_time_per_seal > 0 else 0
-                company_times[company] = (average_time_per_seal, seals_per_minute)
-            else:
-                company_times[company] = (None, None)
+        if total_seals > 0:
+            avg_time = total_time / total_seals
+            seals_per_minute = 1 / avg_time if avg_time > 0 else 0
+            company_times[company] = (avg_time, seals_per_minute)
         else:
             company_times[company] = (None, None)
 
-    # ✅ Wyświetlanie wyników dla firm
     st.subheader("📊 By Company")
     company_df = pd.DataFrame(
-        [(company, ct[0], ct[1]) for company, ct in company_times.items()],
+        [(company, avg[0], avg[1]) for company, avg in company_times.items()],
         columns=['Company', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
     )
     st.table(company_df)
-    
-    # ✅ Analiza na podstawie operatora
-    operators = df['Operator'].unique()
+
+    # Analiza na podstawie operatora
+    operators = filtered_df['Operator'].unique()
     operator_times = {}
 
     for operator in operators:
-        filtered_df = df[df['Operator'] == operator]
+        filtered_operator_df = filtered_df[filtered_df['Operator'] == operator]
+        total_time = filtered_operator_df['Production Time'].sum()
+        total_seals = filtered_operator_df['Seal Count'].sum()
 
-        if not filtered_df.empty:
-            total_production_time = filtered_df['Production Time'].sum()
-            total_seals_count = filtered_df['Seal Count'].sum()
-
-            if total_seals_count > 0:
-                average_time_per_seal = total_production_time / total_seals_count
-                seals_per_minute = 1 / average_time_per_seal if average_time_per_seal > 0 else 0
-                operator_times[operator] = (average_time_per_seal, seals_per_minute)
-            else:
-                operator_times[operator] = (None, None)
+        if total_seals > 0:
+            avg_time = total_time / total_seals
+            seals_per_minute = 1 / avg_time if avg_time > 0 else 0
+            operator_times[operator] = (avg_time, seals_per_minute)
         else:
             operator_times[operator] = (None, None)
 
-    # ✅ Wyświetlanie wyników dla operatorów
     st.subheader("📊 By Operator")
     operator_df = pd.DataFrame(
-        [(operator, ot[0], ot[1]) for operator, ot in operator_times.items()],
+        [(operator, avg[0], avg[1]) for operator, avg in operator_times.items()],
         columns=['Operator', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
     )
     st.table(operator_df)
