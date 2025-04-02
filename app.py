@@ -84,7 +84,6 @@ def login(username, password, users_df):
     if not user.empty:
         return user.iloc[0]
     return None
-
 # Wczytanie użytkowników i danych produkcyjnych
 users_df = load_users()
 df = load_data_from_gsheets()
@@ -115,6 +114,7 @@ if st.session_state.user is not None:
     st.sidebar.header("➕ Add New Order")
 
     with st.sidebar.form("production_form", clear_on_submit=True):
+        # Form inputs
         date = st.date_input("Production Date", value=datetime.date.today(), key="add_order_date")
         company = st.text_input("Company Name", key="add_order_company")
         operator = st.text_input("Operator", value=st.session_state.user['Username'], key="add_order_operator")
@@ -123,8 +123,11 @@ if st.session_state.user is not None:
         production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1, key="add_order_production_time")
         downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1, key="add_order_downtime")
         downtime_reason = st.text_input("Reason for Downtime", key="add_order_downtime_reason")
+        
+        # Submit button
         submitted = st.form_submit_button("Save Order", key="save_order_button")
 
+        # When form is submitted, save data
         if submitted:
             new_entry = {
                 'Date': date,
@@ -144,41 +147,40 @@ if st.session_state.user is not None:
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time"
     ])
-
-    with tab1:
-        st.header("📊 Production Data Overview")
+with tab1:
+    st.header("📊 Production Data Overview")
+    
+    if not df.empty:
+        # ✅ Obliczanie średniej produkcji dziennej
+        total_seals = df['Seal Count'].sum()
+        total_days = (df['Date'].max() - df['Date'].min()).days + 1
         
-        if not df.empty:
-            # ✅ Obliczanie średniej produkcji dziennej
-            total_seals = df['Seal Count'].sum()
-            total_days = (df['Date'].max() - df['Date'].min()).days + 1
-            
-            if total_days > 0:
-                average_daily_production = total_seals / total_days
-            else:
-                average_daily_production = 0
+        if total_days > 0:
+            average_daily_production = total_seals / total_days
+        else:
+            average_daily_production = 0
 
-            st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
+        st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
 
-            # 🔥 Wyświetlanie danych z paginacją
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-            st.dataframe(df)
+        # 🔥 Wyświetlanie danych z paginacją
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        st.dataframe(df)
 
-    with tab2:
-        show_charts(df)
+with tab2:
+    show_charts(df)
 
-    with tab3:
-        if st.session_state.user['Role'] == 'Admin':
-            show_user_management(users_df, save_users_to_gsheets)
+with tab3:
+    if st.session_state.user['Role'] == 'Admin':
+        show_user_management(users_df, save_users_to_gsheets)
 
-    with tab4:
-        show_reports(df)
+with tab4:
+    show_reports(df)
 
-    with tab5:
-        show_backup_option(df, save_data_to_gsheets)
+with tab5:
+    show_backup_option(df, save_data_to_gsheets)
 
-    with tab6:
-        calculate_average_time(df)
+with tab6:
+    calculate_average_time(df)
 
 # ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
 if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
