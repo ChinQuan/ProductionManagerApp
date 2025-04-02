@@ -6,10 +6,11 @@ import plotly.express as px
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Importujemy nasze moduły
+# Importowanie modułów
 from modules.reports import show_reports
 from modules.charts import show_charts
 from modules.backup import show_backup_option
+from modules.user_management import show_user_management
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
@@ -38,7 +39,7 @@ def connect_to_gsheets():
 def load_users():
     client = connect_to_gsheets()
     try:
-        sheet = client.open("ProductionManagerApp").worksheet("Users")  # Arkusz z użytkownikami
+        sheet = client.open("ProductionManagerApp").worksheet("Users")
         data = sheet.get_all_records()
         if data:
             return pd.DataFrame(data)
@@ -101,7 +102,7 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-# Formularz dodawania nowych wpisów
+# Formularz dodawania nowych wpisów (dla Operatorów i Adminów)
 if st.session_state.user is not None:
     st.sidebar.header("➕ Add New Order")
 
@@ -144,8 +145,7 @@ if st.session_state.user is not None:
 
     with tab3:
         if st.session_state.user['Role'] == 'Admin':
-            st.header("👥 User Management")
-            st.dataframe(users_df)
+            show_user_management(users_df, save_users_to_gsheets)
 
     with tab4:
         show_reports(df)
