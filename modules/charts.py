@@ -4,7 +4,7 @@ import plotly.express as px
 
 def show_charts(df):
     st.header("📈 Enhanced Production Charts")
-    
+
     if df.empty:
         st.write("No data available to display charts.")
         return
@@ -35,3 +35,9 @@ def show_charts(df):
 
     fig2 = px.bar(filtered_df, x='Company', y='Seal Count', title='Production by Company')
     st.plotly_chart(fig2)
+
+    fig3 = px.bar(filtered_df, x='Operator', y='Seal Count', title='Production by Operator')
+    st.plotly_chart(fig3)
+
+    fig4 = px.bar(filtered_df, x='Seal Type', y='Seal Count', title='Production by Seal Type')
+    st.plotly_chart(fig4)
