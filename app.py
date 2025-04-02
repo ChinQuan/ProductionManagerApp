@@ -48,6 +48,7 @@ def load_users():
     except Exception as e:
         st.error(f"❌ Błąd podczas ładowania użytkowników: {e}")
     return pd.DataFrame(columns=['Username', 'Password', 'Role'])
+
 # Funkcja zapisywania użytkowników do Google Sheets
 def save_users_to_gsheets(users_df):
     client = connect_to_gsheets()
@@ -55,7 +56,6 @@ def save_users_to_gsheets(users_df):
     users_df = users_df.astype(str)
     sheet.clear()
     sheet.update([users_df.columns.values.tolist()] + users_df.values.tolist())
-
 # Funkcja ładowania danych produkcyjnych z arkusza Google Sheets
 def load_data_from_gsheets():
     client = connect_to_gsheets()
@@ -72,6 +72,10 @@ def load_data_from_gsheets():
 def save_data_to_gsheets(dataframe):
     client = connect_to_gsheets()
     sheet = client.open("ProductionManagerApp").sheet1
+    
+    # ✅ Konwersja kolumny 'Date' do stringów przed zapisem
+    dataframe['Date'] = dataframe['Date'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else None)
+    
     dataframe = dataframe.astype(str)
     sheet.clear()
     sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
@@ -107,7 +111,7 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-        # Formularz dodawania nowych wpisów
+# Formularz dodawania nowych wpisów
 if st.session_state.user is not None:
     st.sidebar.header("➕ Add New Order")
 
@@ -145,6 +149,8 @@ if st.session_state.user is not None:
     with tab1:
         st.header("📊 Production Data Overview")
         if not df.empty:
+            # ✅ Konwersja 'Date' na string przed wyświetleniem, żeby uniknąć błędów PyArrow
+            df['Date'] = df['Date'].astype(str)
             st.dataframe(df)
 
     with tab2:
@@ -168,7 +174,7 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
     st.sidebar.header("✏️ Edit or Delete Orders")
 
     if not df.empty:
-        # ✅ Konwersja kolumny 'Date' do typu datetime (jeśli jeszcze nie była przekształcona)
+        # ✅ Konwersja kolumny 'Date' do typu datetime
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         
         selected_index = st.sidebar.selectbox("Select Order to Edit", df.index)
@@ -177,13 +183,12 @@ if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin
             selected_row = df.loc[selected_index]
             
             with st.form("edit_order_form"):
-                # ✅ Konwertujemy datę na `datetime.date()` lub ustawiamy na dzisiejszą datę jeśli jest błędna
+                # ✅ Bezpieczna konwersja daty
                 selected_date = pd.to_datetime(selected_row['Date'], errors='coerce')
-                
                 if isinstance(selected_date, pd.Timestamp):
-                    date_value = selected_date.date()  # Prawidłowa data
+                    date_value = selected_date.date()
                 else:
-                    date_value = date.today()  # Ustawiamy dzisiejszą datę, jeśli jest błędna
+                    date_value = date.today()
 
                 date = st.date_input("Edit Production Date", value=date_value)
                 company = st.text_input("Edit Company Name", value=selected_row['Company'])
