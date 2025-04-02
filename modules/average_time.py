@@ -8,8 +8,8 @@ def calculate_average_time(df):
         st.write("No data available to calculate average production time.")
         return
 
-    # Dodajemy nowy typ uszczelek "Special" (jeśli nie ma w danych)
-    if 'Seal Type' not in df.columns or 'Company' not in df.columns:
+    # Sprawdzamy, czy kolumny istnieją
+    if 'Seal Type' not in df.columns or 'Company' not in df.columns or 'Operator' not in df.columns:
         st.write("Required columns not found in data.")
         return
 
@@ -68,3 +68,31 @@ def calculate_average_time(df):
         columns=['Company', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
     )
     st.table(company_df)
+    
+    # ✅ Analiza na podstawie operatora
+    operators = df['Operator'].unique()
+    operator_times = {}
+
+    for operator in operators:
+        filtered_df = df[df['Operator'] == operator]
+
+        if not filtered_df.empty:
+            total_production_time = filtered_df['Production Time'].sum()
+            total_seals_count = filtered_df['Seal Count'].sum()
+
+            if total_seals_count > 0:
+                average_time_per_seal = total_production_time / total_seals_count
+                seals_per_minute = 1 / average_time_per_seal if average_time_per_seal > 0 else 0
+                operator_times[operator] = (average_time_per_seal, seals_per_minute)
+            else:
+                operator_times[operator] = (None, None)
+        else:
+            operator_times[operator] = (None, None)
+
+    # ✅ Wyświetlanie wyników dla operatorów
+    st.subheader("📊 By Operator")
+    operator_df = pd.DataFrame(
+        [(operator, ot[0], ot[1]) for operator, ot in operator_times.items()],
+        columns=['Operator', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
+    )
+    st.table(operator_df)
