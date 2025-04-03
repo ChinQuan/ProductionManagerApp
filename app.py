@@ -13,6 +13,7 @@ from modules.charts import show_charts
 from modules.backup import show_backup_option
 from modules.user_management import show_user_management
 from modules.average_time import calculate_average_time
+from modules.calculator import show_calculator  # ✅ Import kalkulatora
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
@@ -36,7 +37,6 @@ def connect_to_gsheets():
     client = gspread.authorize(creds)
     
     return client
-
 # Funkcja ładowania danych użytkowników z Google Sheets
 def load_users():
     client = connect_to_gsheets()
@@ -56,6 +56,7 @@ def save_users_to_gsheets(users_df):
     users_df = users_df.astype(str)
     sheet.clear()
     sheet.update([users_df.columns.values.tolist()] + users_df.values.tolist())
+
 # Funkcja ładowania danych produkcyjnych z arkusza Google Sheets
 def load_data_from_gsheets():
     client = connect_to_gsheets()
@@ -73,7 +74,6 @@ def save_data_to_gsheets(dataframe):
     client = connect_to_gsheets()
     sheet = client.open("ProductionManagerApp").sheet1
     
-    # ✅ Konwersja kolumny 'Date' do stringów przed zapisem
     dataframe['Date'] = dataframe['Date'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else None)
     
     dataframe = dataframe.astype(str)
@@ -141,50 +141,35 @@ if st.session_state.user is not None:
             save_data_to_gsheets(df)
             st.sidebar.success("Order saved successfully!")
 
-    # Zakładki
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time"
-    ])
+# Zakładki
+tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+    "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time", "Production Calculator"
+])
 
-    with tab1:
-        st.header("📊 Production Data Overview")
-        
-        if not df.empty:
-            # ✅ Konwersja 'Date' do formatu datetime
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+with tab1:
+    st.header("📊 Production Data Overview")
+    
+    if not df.empty:
+        st.dataframe(df)
 
-            # 📈 Obliczanie średniej produkcji dziennej
-            total_seals = df['Seal Count'].sum()
-            total_days = (df['Date'].max() - df['Date'].min()).days + 1
-            
-            if total_days > 0:
-                average_daily_production = total_seals / total_days
-            else:
-                average_daily_production = 0
+with tab2:
+    show_charts(df)
 
-            # 💪 Wyświetlanie średniej produkcji dziennej
-            st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
+with tab3:
+    if st.session_state.user['Role'] == 'Admin':
+        show_user_management(users_df, save_users_to_gsheets)
 
-            # 🔥 Konwersja 'Date' na string przed wyświetleniem
-            df['Date'] = df['Date'].astype(str)
-            st.dataframe(df)
+with tab4:
+    show_reports(df)
 
-    with tab2:
-        show_charts(df)
+with tab5:
+    show_backup_option(df, save_data_to_gsheets)
 
-    with tab3:
-        if st.session_state.user['Role'] == 'Admin':
-            show_user_management(users_df, save_users_to_gsheets)
+with tab6:
+    calculate_average_time(df)
 
-    with tab4:
-        show_reports(df)
-
-    with tab5:
-        show_backup_option(df, save_data_to_gsheets)
-
-    with tab6:
-        calculate_average_time(df)
-
+with tab7:
+    show_calculator(df)
 # ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
 if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
     st.sidebar.header("✏️ Edit or Delete Orders")
