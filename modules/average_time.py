@@ -43,7 +43,6 @@ def calculate_average_time(df):
         st.write("No data available for the selected date range.")
         return
 
-    # 📊 Dalej obliczamy dane jak wcześniej
     st.write(f"Showing data from **{start_date.date()}** to **{end_date.date()}**")
 
     # Analiza na podstawie typu uszczelki
@@ -56,8 +55,8 @@ def calculate_average_time(df):
         total_seals = filtered_type_df['Seal Count'].sum()
 
         if total_seals > 0:
-            avg_time = total_time / total_seals
-            seals_per_minute = 1 / avg_time if avg_time > 0 else 0
+            avg_time = (total_time / total_seals) * 60  # 🔥 Konwersja na sekundy
+            seals_per_minute = 60 / avg_time if avg_time > 0 else 0
             average_times[seal_type] = (avg_time, seals_per_minute)
         else:
             average_times[seal_type] = (None, None)
@@ -65,7 +64,7 @@ def calculate_average_time(df):
     st.subheader("📊 By Seal Type")
     result_df = pd.DataFrame(
         [(seal_type, avg[0], avg[1]) for seal_type, avg in average_times.items()],
-        columns=['Seal Type', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
+        columns=['Seal Type', 'Average Time per Seal (seconds)', 'Seals Produced per Minute (UPM)']
     )
     st.table(result_df)
 
@@ -79,8 +78,8 @@ def calculate_average_time(df):
         total_seals = filtered_company_df['Seal Count'].sum()
 
         if total_seals > 0:
-            avg_time = total_time / total_seals
-            seals_per_minute = 1 / avg_time if avg_time > 0 else 0
+            avg_time = (total_time / total_seals) * 60  # 🔥 Konwersja na sekundy
+            seals_per_minute = 60 / avg_time if avg_time > 0 else 0
             company_times[company] = (avg_time, seals_per_minute)
         else:
             company_times[company] = (None, None)
@@ -88,7 +87,7 @@ def calculate_average_time(df):
     st.subheader("📊 By Company")
     company_df = pd.DataFrame(
         [(company, avg[0], avg[1]) for company, avg in company_times.items()],
-        columns=['Company', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
+        columns=['Company', 'Average Time per Seal (seconds)', 'Seals Produced per Minute (UPM)']
     )
     st.table(company_df)
 
@@ -102,8 +101,8 @@ def calculate_average_time(df):
         total_seals = filtered_operator_df['Seal Count'].sum()
 
         if total_seals > 0:
-            avg_time = total_time / total_seals
-            seals_per_minute = 1 / avg_time if avg_time > 0 else 0
+            avg_time = (total_time / total_seals) * 60  # 🔥 Konwersja na sekundy
+            seals_per_minute = 60 / avg_time if avg_time > 0 else 0
             operator_times[operator] = (avg_time, seals_per_minute)
         else:
             operator_times[operator] = (None, None)
@@ -111,6 +110,6 @@ def calculate_average_time(df):
     st.subheader("📊 By Operator")
     operator_df = pd.DataFrame(
         [(operator, avg[0], avg[1]) for operator, avg in operator_times.items()],
-        columns=['Operator', 'Average Time per Seal (min)', 'Seals Produced per Minute (UPM)']
+        columns=['Operator', 'Average Time per Seal (seconds)', 'Seals Produced per Minute (UPM)']
     )
     st.table(operator_df)
