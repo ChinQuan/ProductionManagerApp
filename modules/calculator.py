@@ -119,3 +119,57 @@ def show_calculator(df):
                 st.error("⛔ It is not possible to complete all orders within the specified time range.")
         else:
             st.error("⚠️ Calculation failed. Check your input data.")
+            def show_calculator(df):
+    st.header("📅 Production Calculator")
+
+    if 'orders' not in st.session_state:
+        st.session_state.orders = []
+
+    if df.empty:
+        st.error("🚫 No production data available. Add entries first.")
+        return
+    
+    # ✅ Import zleceń z Excela
+    st.subheader("📥 Import Orders from Excel")
+    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
+
+    if uploaded_file is not None:
+        try:
+            imported_df = pd.read_excel(uploaded_file)
+
+            if all(column in imported_df.columns for column in ['Company', 'Seal Type', 'Seal Count']):
+                st.write("✅ File successfully uploaded. Preview:")
+                st.dataframe(imported_df)
+                
+                # Wyciągamy średnie czasy produkcji z dostępnych danych
+                averages = df.groupby('Seal Type')['Production Time'].sum() / df.groupby('Seal Type')['Seal Count'].sum()
+
+                imported_df['Average Time per Seal (minutes)'] = imported_df['Seal Type'].apply(lambda x: averages.get(x, None))
+                imported_df.dropna(subset=['Average Time per Seal (minutes)'], inplace=True)
+                
+                imported_df['Total Time (minutes)'] = imported_df['Seal Count'] * imported_df['Average Time per Seal (minutes)']
+                
+                st.write("📈 Orders with calculated times:")
+                st.dataframe(imported_df[['Company', 'Seal Type', 'Seal Count', 'Average Time per Seal (minutes)', 'Total Time (minutes)']])
+                
+                total_minutes = imported_df['Total Time (minutes)'].sum()
+                st.success(f"✅ Total estimated time for all imported orders: {total_minutes:.2f} minutes.")
+                
+                # 📅 Dodajemy możliwość wybrania początku produkcji
+                start_date = st.date_input("Start Date", value=datetime.date.today())
+                start_time = st.time_input("Start Time", value=datetime.time(6, 30))
+                start_datetime = datetime.datetime.combine(start_date, start_time)
+                
+                estimated_end_datetime = add_work_minutes(start_datetime, total_minutes)
+                
+                if estimated_end_datetime:
+                    st.success(f"📅 Estimated Completion Time: {estimated_end_datetime.strftime('%Y-%m-%d %H:%M')}")
+                else:
+                    st.error("❌ Could not calculate completion time.")
+                
+            else:
+                st.error("❌ The file must contain the columns: 'Company', 'Seal Type', 'Seal Count'")
+        
+        except Exception as e:
+            st.error(f"❌ Error reading the file: {e}")
+
