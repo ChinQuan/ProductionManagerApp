@@ -2,20 +2,28 @@ import streamlit as st
 import pandas as pd
 import datetime
 
-def add_work_minutes(start_datetime, work_minutes, max_days=365):
+def add_work_minutes(start_datetime, work_minutes, seal_type, max_days=365):
     total_minutes = 0
     days_processed = 0
 
     while work_minutes > 0:
         if days_processed > max_days:
-            st.error("⚠️ Przekroczono maksymalny limit dni (365). Sprawdź dane wejściowe.")
+            st.error("⚠️ Maximum day limit (365) exceeded. Check your input data.")
             return None
 
-        if start_datetime.weekday() < 4:  # Poniedziałek - Czwartek
-            work_day_minutes = 510  # 8.5h = 510 minut (9.5h - 1h przerwy)
-        elif start_datetime.weekday() == 4:  # Piątek (Praktykant)
-            work_day_minutes = 450  # 7.5h = 450 minut (8.5h - 1h przerwy)
-        else:
+        weekday = start_datetime.weekday()
+        
+        if weekday < 4:  # Poniedziałek - Czwartek
+            if seal_type in ['Standard Hard', 'Standard Soft'] and weekday in [0, 1, 2]:  # Praktykant też pracuje
+                work_day_minutes = 510 + 450  # Ty + Praktykant = 510 + 450 = 960 minut
+            else:
+                work_day_minutes = 510  # Tylko Ty + pracownik
+        elif weekday == 4:  # Piątek - tylko praktykant
+            if seal_type in ['Standard Hard', 'Standard Soft']:
+                work_day_minutes = 450  # Praktykant tylko
+            else:
+                work_day_minutes = 0  # Brak możliwości pracy nad innymi zleceniami w piątek
+        else:  # Sobota, Niedziela - nikt nie pracuje
             start_datetime += datetime.timedelta(days=1)
             days_processed += 1
             continue
@@ -89,10 +97,9 @@ def show_calculator(df):
         orders_df = pd.DataFrame(st.session_state.orders)
         st.table(orders_df)
 
-        # ✅ Poprawka - Resetowanie listy zleceń
         if st.button("Clear All Orders"):
-            del st.session_state.orders  # Usuń całkowicie z pamięci
-            st.session_state.orders = []  # Utwórz pustą listę
+            del st.session_state.orders
+            st.session_state.orders = []
             st.warning("📋 All orders have been cleared.")
 
         # 📅 Wybieranie przedziału czasu na wykonanie zleceń
@@ -107,7 +114,7 @@ def show_calculator(df):
         
         # 🧮 Obliczenia dla wszystkich zleceń
         total_time = sum(order["Order Quantity"] * order["Average Time per Seal (minutes)"] for order in st.session_state.orders)
-        estimated_end_datetime = add_work_minutes(start_datetime, total_time)
+        estimated_end_datetime = add_work_minutes(start_datetime, total_time, selected_seal_type)
 
         if estimated_end_datetime:
             formatted_time = format_time(total_time)
