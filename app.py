@@ -69,14 +69,7 @@ df = load_data_from_gsheets()
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# Zakładki
-tab1, tab2, tab3, tab4 = st.tabs(["Home", "Charts", "Admin", "Calculator"])
-
-# Zapisywanie aktywnej zakładki
-if 'current_tab' not in st.session_state:
-    st.session_state.current_tab = 'Home'
-
-# Panel logowania
+# Panel logowania - widoczny TYLKO gdy użytkownik nie jest zalogowany
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
     username = st.sidebar.text_input("Username")
@@ -89,40 +82,24 @@ if st.session_state.user is None:
             st.sidebar.success(f"Logged in as {username}")
         else:
             st.sidebar.error("Invalid username or password")
-else:
+# ✅ Wyświetlamy dane tylko po poprawnym zalogowaniu
+if st.session_state.user is not None:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
+    
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-with tab1:
-    st.session_state.current_tab = 'Home'
-    st.header("📊 Production Data Overview")
-    
-    if st.session_state.user:
-        if st.session_state.user['Role'] == 'Admin':
-            show_admin_panel(users_df, save_data_to_gsheets, df, st.session_state.current_tab)
+        st.experimental_rerun()
 
-        if not df.empty:
-            st.dataframe(df)
-    else:
-        st.warning("🚫 You must be logged in to view production data.")
+    if st.session_state.user['Role'] == 'Admin':
+        show_admin_panel(users_df, save_data_to_gsheets, df, "Home")
 
-with tab2:
-    st.session_state.current_tab = 'Charts'
-    if st.session_state.user:
-        show_charts(df)
-    else:
-        st.warning("🚫 You must be logged in to view charts.")
+    if not df.empty:
+        st.header("📊 Production Data Overview")
+        st.dataframe(df)
 
-with tab3:
-    st.session_state.current_tab = 'Admin'
-    if st.session_state.user and st.session_state.user['Role'] == 'Admin':
-        show_user_management(users_df, save_data_to_gsheets)
-    else:
-        st.warning("🚫 Admin access required.")
-
-with tab4:
-    st.session_state.current_tab = 'Calculator'
-    if st.session_state.user:
-        show_calculator(df)
-    else:
-        st.warning("🚫 You must be logged in to use the calculator.")
+    show_charts(df)
+    show_calculator(df)
+    show_user_management(users_df, save_data_to_gsheets)
+    show_reports(df)
+    show_backup_option(df, save_data_to_gsheets)
+    calculate_average_time(df)
