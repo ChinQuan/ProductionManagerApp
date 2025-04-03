@@ -3,19 +3,23 @@ import pandas as pd
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+
+# Importowanie modułów
 from modules.reports import show_reports
 from modules.charts import show_charts
 from modules.backup import show_backup_option
 from modules.user_management import show_user_management
 from modules.average_time import calculate_average_time
 from modules.calculator import show_calculator
-from modules.admin import show_admin_panel
 
-# Inicjalizacja aplikacji
+# Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
-st.title("Production Manager App")
 
-# Funkcja łączenia z Google Sheets
+# Inicjalizacja stanu sesji
+if 'user' not in st.session_state:
+    st.session_state.user = None
+
+# Funkcja połączenia z Google Sheets
 def connect_to_gsheets():
     scope = [
         "https://spreadsheets.google.com/feeds",
@@ -30,7 +34,7 @@ def connect_to_gsheets():
     
     return client
 
-# Funkcja ładowania danych użytkowników
+# Funkcja ładowania danych użytkowników z Google Sheets
 def load_users():
     client = connect_to_gsheets()
     try:
@@ -42,90 +46,137 @@ def load_users():
         st.error(f"❌ Error loading users: {e}")
     return pd.DataFrame(columns=['Username', 'Password', 'Role'])
 
-# Funkcja ładowania danych produkcyjnych
-def load_data_from_gsheets():
-    client = connect_to_gsheets()
-    try:
-        sheet = client.open("ProductionManagerApp").sheet1
-        data = sheet.get_all_records()
-        if data:
-            return pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"❌ Error loading production data: {e}")
-    return pd.DataFrame(columns=['Date', 'Company', 'Seal Count', 'Operator', 'Seal Type', 'Production Time', 'Downtime', 'Reason for Downtime'])
-# Funkcja zapisywania danych produkcyjnych
-def save_data_to_gsheets(df):
+# Funkcja zapisywania danych do Google Sheets
+def save_data_to_gsheets(dataframe):
     client = connect_to_gsheets()
     sheet = client.open("ProductionManagerApp").sheet1
-    df = df.astype(str)
+    
+    dataframe = dataframe.astype(str)
     sheet.clear()
-    sheet.update([df.columns.values.tolist()] + df.values.tolist())
+    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
 
-# Wczytywanie danych
+# Wczytanie użytkowników
 users_df = load_users()
-df = load_data_from_gsheets()
 
-# Inicjalizacja sesji
-if 'user' not in st.session_state:
-    st.session_state.user = None
+# Funkcja logowania
+def login(username, password, users_df):
+    user = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
+    if not user.empty:
+        return user.iloc[0]
+    return None
 
-# Panel logowania - widoczny TYLKO gdy użytkownik nie jest zalogowany
+# Panel logowania
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
     username = st.sidebar.text_input("Username")
     password = st.sidebar.text_input("Password", type="password")
 
     if st.sidebar.button("Login"):
-        user = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
-        if not user.empty:
-            st.session_state.user = user.iloc[0].to_dict()
-            st.sidebar.success(f"Logged in as {username}")
+        user = login(username, password, users_df)
+        if user is not None:
+            st.session_state.user = user
+            st.sidebar.success(f"Logged in as {user['Username']}")
+            st.experimental_rerun()
         else:
             st.sidebar.error("Invalid username or password")
-# ✅ Wyświetlanie zakładek TYLKO po zalogowaniu
-if st.session_state.user is not None:
+else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
-    
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-        st.sidebar.success("🔓 You have been logged out successfully.")
+        st.experimental_rerun()
         
-    # Zakładki widoczne po zalogowaniu
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "Home", "Production Charts", "Admin", "Calculator", "Average Time"
+    # Zakładki dostępne tylko po zalogowaniu
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
+        "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
     ])
 
+    # Zakładka Home
     with tab1:
         st.header("📊 Production Data Overview")
         
-        if st.session_state.user['Role'] == 'Admin':
-            show_admin_panel(users_df, save_data_to_gsheets, df, "Home")
-        
-        if not df.empty:
-            st.dataframe(df)
-
-            # ✅ Obliczanie średniej produkcji dziennej
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-            total_seals = df['Seal Count'].sum()
-            total_days = (df['Date'].max() - df['Date'].min()).days + 1
+        if st.session_state.user:
+            st.subheader("➕ Add New Completed Order")
             
-            if total_days > 0:
-                average_daily_production = total_seals / total_days
-                st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
-            else:
-                st.write("📅 Not enough data to calculate daily production average.")
+            with st.form("production_form", clear_on_submit=True):
+                date = st.date_input("Production Date", value=datetime.date.today())
+                company = st.text_input("Company Name")
+                operator = st.text_input("Operator", value=st.session_state.user['Username'])
+                
+                seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Stack'])
+                
+                profile = None
+                if seal_type in ['Standard Hard', 'Standard Soft']:
+                    profile = st.text_input("Enter Seal Profile (e.g., Profile A, Profile B)")
+                
+                actual_seal_count = None
+                if seal_type == 'Stack':
+                    actual_seal_count = st.number_input("Enter Actual Number of Seals in Stack", min_value=1, step=1)
+                
+                seals_count = st.number_input("Number of Seals (or Stacks)", min_value=0, step=1)
+                
+                production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
+                downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1)
+                downtime_reason = st.text_input("Reason for Downtime")
+                submitted = st.form_submit_button("Save Entry")
 
+                if submitted:
+                    if seal_type == 'Stack' and actual_seal_count:
+                        total_seals = actual_seal_count
+                    else:
+                        total_seals = seals_count
+                    
+                    new_entry = {
+                        'Date': date,
+                        'Company': company,
+                        'Operator': operator,
+                        'Seal Type': seal_type,
+                        'Profile': profile if profile else "N/A",
+                        'Seal Count': total_seals,
+                        'Production Time': production_time,
+                        'Downtime': downtime,
+                        'Reason for Downtime': downtime_reason
+                    }
+                    
+                    df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
+                    save_data_to_gsheets(df)
+                    st.success("✅ Order saved successfully!")
+    # ✅ Wyświetlanie tabeli z obecnymi zleceniami tylko, jeśli użytkownik jest zalogowany
+    if st.session_state.user and not df.empty:
+        st.subheader("📋 Current Production Orders")
+        st.dataframe(df)
+
+    # Zakładka Production Charts
     with tab2:
-        show_charts(df)
+        if st.session_state.user:
+            show_charts(df)
+        else:
+            st.warning("🔒 Please log in to view Production Charts.")
 
+    # Zakładka Calculator
     with tab3:
-        if st.session_state.user['Role'] == 'Admin':
+        if st.session_state.user:
+            show_calculator(df)
+        else:
+            st.warning("🔒 Please log in to access the Calculator.")
+
+    # Zakładka User Management (tylko dla Admina)
+    with tab4:
+        if st.session_state.user and st.session_state.user['Role'] == 'Admin':
             show_user_management(users_df, save_data_to_gsheets)
         else:
-            st.warning("🚫 Only Admins can access this section.")
+            st.warning("🔒 Access restricted to Admins only.")
 
-    with tab4:
-        show_calculator(df)
-    
+    # Zakładka Reports
     with tab5:
-        calculate_average_time(df)
+        if st.session_state.user:
+            show_reports(df)
+        else:
+            st.warning("🔒 Please log in to access Reports.")
+
+    # Zakładka Average Production Time
+    with tab6:
+        if st.session_state.user:
+            calculate_average_time(df)
+        else:
+            st.warning("🔒 Please log in to view Average Production Time.")
+
