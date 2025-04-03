@@ -106,7 +106,7 @@ else:
         "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
     ])
 
-    # Zakładka Home
+   # Zakładka Home
     with tab1:
         st.header("📊 Production Data Overview")
         
@@ -116,7 +116,7 @@ else:
             
             # ✅ Wyświetlenie średniej dziennej produkcji
             if not df.empty and 'Date' in df.columns:
-                if df['Date'].dtype == 'O':  # Jeśli kolumna 'Date' jest tekstem
+                if df['Date'].dtype == 'O':
                     df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
 
                 valid_dates = df['Date'].dropna()
@@ -132,6 +132,9 @@ else:
                         st.write("### 📈 Average Daily Production: Not enough data to calculate.")
                 else:
                     st.write("### 📈 Average Daily Production: No valid dates available.")
+
+        # ✅ Dynamiczny formularz wczytywany z modułów
+        df = show_form(df, save_data_to_gsheets)
 
         # ✅ Formularz dodawania zleceń z modułu
         df = show_form(df, save_data_to_gsheets)
