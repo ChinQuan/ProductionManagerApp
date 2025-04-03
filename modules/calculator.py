@@ -44,7 +44,6 @@ def format_time(minutes):
 def show_calculator(df):
     st.header("📅 Production Calculator")
 
-    # Zmienna sesyjna na przechowywanie zleceń do kalkulacji
     if 'orders' not in st.session_state:
         st.session_state.orders = []
 
@@ -52,7 +51,6 @@ def show_calculator(df):
         st.error("🚫 No production data available. Add entries first.")
         return
     
-    # Pobieranie unikalnych typów uszczelek i firm
     seal_types = df['Seal Type'].unique().tolist()
     companies = df['Company'].unique().tolist()
 
@@ -60,7 +58,6 @@ def show_calculator(df):
     selected_seal_type = st.selectbox("Select Seal Type", seal_types)
     order_quantity = st.number_input("Order Quantity", min_value=1, step=1)
 
-    # Filtrujemy dane według wybranego typu uszczelki i firmy
     filtered_df = df[(df['Seal Type'] == selected_seal_type) & (df['Company'] == selected_company)]
 
     if not filtered_df.empty:
@@ -71,10 +68,8 @@ def show_calculator(df):
             average_time_per_seal = total_production_time / total_seals
             st.success(f"📈 Average Time per Seal: {format_time(average_time_per_seal)}")
         else:
-            st.warning("⚠️ No valid data for calculating average time.")
             average_time_per_seal = 0
     else:
-        st.warning("⚠️ No data available for the selected combination.")
         average_time_per_seal = 0
 
     if st.button("Add Order to Calculation"):
@@ -98,21 +93,29 @@ def show_calculator(df):
             st.session_state.orders = []
             st.warning("📋 All orders have been cleared.")
 
-        # Ustawienia początkowe
+        # 📅 Wybieranie przedziału czasu na wykonanie zleceń
+        st.subheader("📅 Set Working Time Range")
         start_date = st.date_input("Start Date", value=datetime.date.today())
         start_time = st.time_input("Start Time", value=datetime.time(6, 30))
+        end_date = st.date_input("End Date", value=start_date + datetime.timedelta(days=4))
+        end_time = st.time_input("End Time", value=datetime.time(17, 0))
+
         start_datetime = datetime.datetime.combine(start_date, start_time)
+        end_datetime = datetime.datetime.combine(end_date, end_time)
         
-        # Obliczenia dla wszystkich zleceń
-        total_time = 0
-        for order in st.session_state.orders:
-            total_time += order["Order Quantity"] * order["Average Time per Seal (minutes)"]
-        
+        # 🧮 Obliczenia dla wszystkich zleceń
+        total_time = sum(order["Order Quantity"] * order["Average Time per Seal (minutes)"] for order in st.session_state.orders)
         estimated_end_datetime = add_work_minutes(start_datetime, total_time)
-        
+
         if estimated_end_datetime:
             formatted_time = format_time(total_time)
             st.success(f"✅ Total Production Time: {formatted_time}")
             st.success(f"✅ Estimated Completion Time: {estimated_end_datetime.strftime('%Y-%m-%d %H:%M')}")
+
+            # 🔔 Sprawdzanie, czy da się zakończyć pracę przed wybranym czasem
+            if estimated_end_datetime <= end_datetime:
+                st.success("🎉 Wszystkie zlecenia zmieszczą się w podanym przedziale czasowym!")
+            else:
+                st.error("⛔ Nie uda się ukończyć wszystkich zleceń w wybranym przedziale czasowym.")
         else:
             st.error("⚠️ Calculation failed. Check your input data.")
