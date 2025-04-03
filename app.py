@@ -87,13 +87,13 @@ if st.session_state.user is None:
     password = st.sidebar.text_input("Password", type="password")
 
     if st.sidebar.button("Login"):
-        user = login(username, password, users_df)
-        if user is not None:
-            st.session_state.user = user
-            st.sidebar.success(f"Logged in as {user['Username']}")
-            st.experimental_rerun()
-        else:
-            st.sidebar.error("Invalid username or password")
+    user = login(username, password, users_df)
+    if user is not None:
+        st.session_state.user = user
+        st.sidebar.success(f"Logged in as {user['Username']}")
+    else:
+        st.sidebar.error("Invalid username or password")
+
 
 else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
