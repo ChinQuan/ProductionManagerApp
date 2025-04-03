@@ -65,7 +65,10 @@ def login(username, password, users_df):
         return user.iloc[0]
     return None
 
+
 # Panel logowania
+st.title("Production Manager App")  # ✅ Dodano nazwę aplikacji na samej górze
+
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
     username = st.sidebar.text_input("Username")
@@ -76,14 +79,17 @@ if st.session_state.user is None:
         if user is not None:
             st.session_state.user = user
             st.sidebar.success(f"Logged in as {user['Username']}")
-            st.experimental_rerun()
+            st.experimental_rerun()  # ✅ To działa poprawnie podczas logowania
         else:
             st.sidebar.error("Invalid username or password")
+
 else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
+    
     if st.sidebar.button("Logout"):
-        st.session_state.user = None
-        st.experimental_rerun()
+        st.session_state.pop("user")  # ✅ Lepszy sposób na wylogowanie (usuwa tylko 'user' ze stanu)
+        st.experimental_rerun()  # ✅ Można pozostawić do odświeżenia aplikacji
+
         
     # Zakładki dostępne tylko po zalogowaniu
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
