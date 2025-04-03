@@ -100,9 +100,20 @@ if st.session_state.user is not None:
         
         if st.session_state.user['Role'] == 'Admin':
             show_admin_panel(users_df, save_data_to_gsheets, df, "Home")
-
+        
         if not df.empty:
             st.dataframe(df)
+
+            # ✅ Obliczanie średniej produkcji dziennej
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            total_seals = df['Seal Count'].sum()
+            total_days = (df['Date'].max() - df['Date'].min()).days + 1
+            
+            if total_days > 0:
+                average_daily_production = total_seals / total_days
+                st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
+            else:
+                st.write("📅 Not enough data to calculate daily production average.")
 
     with tab2:
         show_charts(df)
