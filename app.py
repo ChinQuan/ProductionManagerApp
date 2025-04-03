@@ -1,103 +1,42 @@
-# Formularz dodawania nowych wpisów
-if st.session_state.user is not None:
-    st.sidebar.header("➕ Add New Order")
+import streamlit as st
+import pandas as pd
+import os
+import datetime
+import plotly.express as px
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from datetime import date
 
-    with st.sidebar.form("production_form"):
-        date = st.date_input("Production Date", value=datetime.date.today())
-        company = st.text_input("Company Name")
-        operator = st.text_input("Operator", value=st.session_state.user['Username'])
-        seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'])
-        seals_count = st.number_input("Number of Seals", min_value=0, step=1)
-        production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
-        downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1)
-        downtime_reason = st.text_input("Reason for Downtime")
-        submitted = st.form_submit_button("Save Order")
+# Importowanie modułów
+from modules.reports import show_reports
+from modules.charts import show_charts
+from modules.backup import show_backup_option
+from modules.user_management import show_user_management
+from modules.average_time import calculate_average_time
+from modules.calculator import show_calculator
 
-        if submitted:
-            new_entry = {
-                'Date': date,
-                'Company': company,
-                'Seal Count': seals_count,
-                'Operator': operator,
-                'Seal Type': seal_type,
-                'Production Time': production_time,
-                'Downtime': downtime,
-                'Reason for Downtime': downtime_reason
-            }
-            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-            save_data_to_gsheets(df)
-            st.sidebar.success("Order saved successfully!")
+# Konfiguracja aplikacji
+st.set_page_config(page_title="Production Manager App", layout="wide")
+st.title("Production Manager App")
 
-    with tab2:
-        show_charts(df)
+# Inicjalizacja stanu sesji
+if 'user' not in st.session_state:
+    st.session_state.user = None
 
-    with tab3:
-        if st.session_state.user['Role'] == 'Admin':
-            show_user_management(users_df, save_data_to_gsheets)
+# Funkcja połączenia z Google Sheets
+def connect_to_gsheets():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive"
+    ]
 
-    with tab4:
-        show_reports(df)
-
-    with tab5:
-        show_backup_option(df, save_data_to_gsheets)
-
-    with tab6:
-        calculate_average_time(df)
-
-    with tab7:
-        show_calculator(df)
-
-# ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
-if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
-    st.sidebar.header("✏️ Edit or Delete Orders")
-
-    if not df.empty:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        
-        selected_index = st.sidebar.selectbox("Select Order to Edit", df.index)
-        
-        if selected_index is not None:
-            selected_row = df.loc[selected_index]
-            
-            with st.form("edit_order_form"):
-                selected_date = pd.to_datetime(selected_row['Date'], errors='coerce')
-                if isinstance(selected_date, pd.Timestamp):
-                    date_value = selected_date.date()
-                else:
-                    date_value = datetime.date.today()
-
-                date = st.date_input("Edit Production Date", value=date_value)
-                company = st.text_input("Edit Company Name", value=selected_row['Company'])
-                operator = st.text_input("Edit Operator", value=selected_row['Operator'])
-                seal_type = st.selectbox(
-                    "Edit Seal Type", 
-                    ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'], 
-                    index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'].index(selected_row['Seal Type'])
-                )
-                seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
-                production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
-                downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']))
-                downtime_reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'])
-
-                update_button = st.form_submit_button("Update Order")
-                delete_button = st.form_submit_button("Delete Order")
-
-                if update_button:
-                    df.at[selected_index, 'Date'] = date
-                    df.at[selected_index, 'Company'] = company
-                    df.at[selected_index, 'Operator'] = operator
-                    df.at[selected_index, 'Seal Type'] = seal_type
-                    df.at[selected_index, 'Seal Count'] = seals_count
-                    df.at[selected_index, 'Production Time'] = production_time
-                    df.at[selected_index, 'Downtime'] = downtime
-                    df.at[selected_index, 'Reason for Downtime'] = downtime_reason
-                    save_data_to_gsheets(df)
-                    st.sidebar.success("Order updated successfully!")
-
-                if delete_button:
-                    df = df.drop(selected_index)
-                    save_data_to_gsheets(df)
-                    st.sidebar.success("Order deleted successfully!")
+    credentials = st.secrets["gcp_service_account"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
+    client = gspread.authorize(creds)
+    
+    return client
 # Funkcja ładowania danych użytkowników z Google Sheets
 def load_users():
     client = connect_to_gsheets()
