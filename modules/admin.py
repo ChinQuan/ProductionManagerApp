@@ -8,7 +8,8 @@ def show_admin_panel(users_df, save_data_to_gsheets, df):
     if not df.empty:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
         
-        selected_index = st.sidebar.selectbox("Select Order to Edit", df.index)
+        # ✅ Dodajemy unikalny identyfikator `key` do selectboxa
+        selected_index = st.sidebar.selectbox("Select Order to Edit", df.index, key="admin_edit_selectbox")
         
         if selected_index is not None:
             selected_row = df.loc[selected_index]
@@ -20,18 +21,19 @@ def show_admin_panel(users_df, save_data_to_gsheets, df):
                 else:
                     date_value = datetime.date.today()
 
-                date = st.date_input("Edit Production Date", value=date_value)
-                company = st.text_input("Edit Company Name", value=selected_row['Company'])
-                operator = st.text_input("Edit Operator", value=selected_row['Operator'])
+                date = st.date_input("Edit Production Date", value=date_value, key="edit_date")
+                company = st.text_input("Edit Company Name", value=selected_row['Company'], key="edit_company")
+                operator = st.text_input("Edit Operator", value=selected_row['Operator'], key="edit_operator")
                 seal_type = st.selectbox(
                     "Edit Seal Type", 
                     ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'], 
-                    index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'].index(selected_row['Seal Type'])
+                    index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'].index(selected_row['Seal Type']),
+                    key="edit_seal_type"
                 )
-                seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
-                production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
-                downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']))
-                downtime_reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'])
+                seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']), key="edit_seals_count")
+                production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']), key="edit_production_time")
+                downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']), key="edit_downtime")
+                downtime_reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'], key="edit_downtime_reason")
 
                 update_button = st.form_submit_button("Update Order")
                 delete_button = st.form_submit_button("Delete Order")
