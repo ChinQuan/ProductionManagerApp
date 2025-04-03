@@ -89,8 +89,10 @@ def show_calculator(df):
         orders_df = pd.DataFrame(st.session_state.orders)
         st.table(orders_df)
 
+        # ✅ Poprawka - Resetowanie listy zleceń
         if st.button("Clear All Orders"):
-            st.session_state.orders = []
+            del st.session_state.orders  # Usuń całkowicie z pamięci
+            st.session_state.orders = []  # Utwórz pustą listę
             st.warning("📋 All orders have been cleared.")
 
         # 📅 Wybieranie przedziału czasu na wykonanie zleceń
@@ -112,7 +114,6 @@ def show_calculator(df):
             st.success(f"✅ Total Production Time: {formatted_time}")
             st.success(f"✅ Estimated Completion Time: {estimated_end_datetime.strftime('%Y-%m-%d %H:%M')}")
 
-            # 🔔 Sprawdzanie, czy da się zakończyć pracę przed wybranym czasem
             if estimated_end_datetime <= end_datetime:
                 st.success("🎉 All orders can be completed within the specified time range!")
             else:
