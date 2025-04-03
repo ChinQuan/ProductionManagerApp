@@ -47,6 +47,20 @@ def load_users():
         st.error(f"❌ Error loading users: {e}")
     return pd.DataFrame(columns=['Username', 'Password', 'Role'])
 
+# Funkcja ładowania danych produkcyjnych z Google Sheets
+def load_data_from_gsheets():
+    client = connect_to_gsheets()
+    try:
+        sheet = client.open("ProductionManagerApp").sheet1
+        data = sheet.get_all_records()
+        if data:
+            df = pd.DataFrame(data)
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            return df
+    except Exception as e:
+        st.error(f"❌ Error loading production data: {e}")
+    return pd.DataFrame(columns=['Date', 'Company', 'Operator', 'Seal Type', 'Seal Count', 'Profile', 'Production Time', 'Downtime', 'Reason for Downtime'])
+
 # Funkcja zapisywania danych do Google Sheets
 def save_data_to_gsheets(dataframe):
     client = connect_to_gsheets()
@@ -56,9 +70,9 @@ def save_data_to_gsheets(dataframe):
     sheet.clear()
     sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
 
-# Wczytanie użytkowników
+# Wczytanie użytkowników i danych produkcyjnych
 users_df = load_users()
-df = pd.DataFrame()  # ✅ Tworzenie pustego DataFrame jako domyślna wartość
+df = load_data_from_gsheets()
 
 # Funkcja logowania
 def login(username, password, users_df):
@@ -77,7 +91,7 @@ if st.session_state.user is None:
         if user is not None:
             st.session_state.user = user
             st.sidebar.success(f"Logged in as {user['Username']}")
-            st.query_params = {"logged_in": "true"}
+            st.experimental_rerun()
         else:
             st.sidebar.error("Invalid username or password")
 
@@ -86,8 +100,8 @@ else:
     
     if st.sidebar.button("Logout"):
         st.session_state.pop("user")
-        st.query_params = {}  # Czyści parametry URL i wraca do strony logowania
-        
+        st.experimental_rerun()  # ✅ Resetowanie sesji
+
     # Zakładki dostępne tylko po zalogowaniu
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
