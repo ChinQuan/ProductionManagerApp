@@ -88,10 +88,12 @@ if st.session_state.user is not None:
     
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-        st.experimental_rerun()
-
+        st.sidebar.success("🔓 You have been logged out successfully.")
+        
     # Zakładki widoczne po zalogowaniu
-    tab1, tab2, tab3, tab4 = st.tabs(["Home", "Production Charts", "Admin", "Calculator"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Home", "Production Charts", "Admin", "Calculator", "Average Time"
+    ])
 
     with tab1:
         st.header("📊 Production Data Overview")
@@ -113,3 +115,6 @@ if st.session_state.user is not None:
 
     with tab4:
         show_calculator(df)
+    
+    with tab5:
+        calculate_average_time(df)
