@@ -1,4 +1,5 @@
 import streamlit as st
+from modules.admin import show_admin_panel  # ✅ Importujemy nowy moduł dla funkcji Admina
 import pandas as pd
 import os
 import datetime
@@ -153,7 +154,7 @@ if st.session_state.user is not None:
         show_calculator(df)
 # ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
 if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
-    st.sidebar.header("✏️ Edit or Delete Orders")
+    show_admin_panel(users_df, save_data_to_gsheets, df)  # ✅ Uruchamiamy panel admina z nowego modułu
 
     if not df.empty:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
