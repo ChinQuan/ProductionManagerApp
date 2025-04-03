@@ -114,8 +114,8 @@ def show_calculator(df):
 
             # 🔔 Sprawdzanie, czy da się zakończyć pracę przed wybranym czasem
             if estimated_end_datetime <= end_datetime:
-                st.success("🎉 Wszystkie zlecenia zmieszczą się w podanym przedziale czasowym!")
+                st.success("🎉 All orders can be completed within the specified time range!")
             else:
-                st.error("⛔ Nie uda się ukończyć wszystkich zleceń w wybranym przedziale czasowym.")
+                st.error("⛔ It is not possible to complete all orders within the specified time range.")
         else:
             st.error("⚠️ Calculation failed. Check your input data.")
