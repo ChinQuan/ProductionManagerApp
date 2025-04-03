@@ -48,10 +48,9 @@ def show_admin_panel(users_df, save_data_to_gsheets, df, current_tab):
                         df.at[selected_index, 'Downtime'] = downtime
                         df.at[selected_index, 'Reason for Downtime'] = downtime_reason
                         save_data_to_gsheets(df)
-                        st.sidebar.success("Order updated successfully!")
+                        st.sidebar.success("✅ Order updated successfully!")
 
                     if delete_button:
                         df = df.drop(selected_index)
                         save_data_to_gsheets(df)
-                        st.sidebar.success("Order deleted successfully!")
-
+                        st.sidebar.success("✅ Order deleted successfully!")
