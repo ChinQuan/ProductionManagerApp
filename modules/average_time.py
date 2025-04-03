@@ -70,4 +70,4 @@ def calculate_average_time(df):
     average_times = {}
 
     for seal_type in seal_types:
-        filtered_type_df = filtered
+        filtered_type_df = filtered_df
