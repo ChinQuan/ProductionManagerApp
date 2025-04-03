@@ -2,16 +2,55 @@ import streamlit as st
 import pandas as pd
 import datetime
 
+def add_work_minutes(start_datetime, work_minutes, max_days=365):
+    total_minutes = 0
+    days_processed = 0
+
+    while work_minutes > 0:
+        if days_processed > max_days:
+            st.error("⚠️ Przekroczono maksymalny limit dni (365). Sprawdź dane wejściowe.")
+            return None
+
+        if start_datetime.weekday() < 4:  # Poniedziałek - Czwartek
+            work_day_minutes = 510  # 8.5h = 510 minut (9.5h - 1h przerwy)
+        elif start_datetime.weekday() == 4:  # Piątek (Praktykant)
+            work_day_minutes = 450  # 7.5h = 450 minut (8.5h - 1h przerwy)
+        else:
+            start_datetime += datetime.timedelta(days=1)
+            days_processed += 1
+            continue
+
+        if work_minutes <= work_day_minutes:
+            total_minutes += work_minutes
+            return start_datetime + datetime.timedelta(minutes=total_minutes)
+        else:
+            work_minutes -= work_day_minutes
+            total_minutes += work_day_minutes
+            start_datetime += datetime.timedelta(days=1)
+            days_processed += 1
+
+    return start_datetime
+
+def format_time(minutes):
+    if minutes < 1:
+        return f"{int(minutes * 60)}s"
+    elif minutes < 60:
+        return f"{int(minutes)}m"
+    else:
+        hours = int(minutes // 60)
+        remaining_minutes = int(minutes % 60)
+        return f"{hours}h {remaining_minutes}m" if remaining_minutes > 0 else f"{hours}h"
+
 def show_calculator(df):
     st.header("📅 Production Calculator")
+
+    if 'orders' not in st.session_state:
+        st.session_state.orders = []
 
     if df.empty:
         st.error("🚫 No production data available. Add entries first.")
         return
     
-    if 'orders' not in st.session_state:
-        st.session_state.orders = []
-
     seal_types = df['Seal Type'].unique().tolist()
     companies = df['Company'].unique().tolist()
 
@@ -27,13 +66,12 @@ def show_calculator(df):
 
         if total_seals > 0:
             average_time_per_seal = total_production_time / total_seals
-            st.success(f"📈 Average Time per Seal: {average_time_per_seal:.2f} minutes")
+            st.success(f"📈 Average Time per Seal: {format_time(average_time_per_seal)}")
         else:
             average_time_per_seal = 0
     else:
         average_time_per_seal = 0
 
-    # ✅ Dodawanie pojedynczych zleceń do listy
     if st.button("Add Order to Calculation"):
         if average_time_per_seal > 0:
             st.session_state.orders.append({
@@ -46,7 +84,6 @@ def show_calculator(df):
         else:
             st.error("⚠️ Cannot add order without valid average time.")
 
-    # ✅ Wyświetlanie dodanych zleceń
     if st.session_state.orders:
         st.subheader("📝 Orders to Calculate")
         orders_df = pd.DataFrame(st.session_state.orders)
@@ -56,51 +93,29 @@ def show_calculator(df):
             st.session_state.orders = []
             st.warning("📋 All orders have been cleared.")
 
-    # ✅ Importowanie zleceń z Excela
-    st.subheader("📥 Import Orders from Excel")
-    uploaded_file = st.file_uploader("Upload Excel File", type=["xlsx", "xls"])
+        # 📅 Wybieranie przedziału czasu na wykonanie zleceń
+        st.subheader("📅 Set Working Time Range")
+        start_date = st.date_input("Start Date", value=datetime.date.today())
+        start_time = st.time_input("Start Time", value=datetime.time(6, 30))
+        end_date = st.date_input("End Date", value=start_date + datetime.timedelta(days=4))
+        end_time = st.time_input("End Time", value=datetime.time(17, 0))
 
-    if uploaded_file is not None:
-        try:
-            imported_df = pd.read_excel(uploaded_file)
-
-            if all(column in imported_df.columns for column in ['Company', 'Seal Type', 'Seal Count']):
-                st.write("✅ File successfully uploaded. Preview:")
-                st.dataframe(imported_df)
-                
-                # Wyciągamy średnie czasy produkcji z dostępnych danych
-                averages = df.groupby('Seal Type')['Production Time'].sum() / df.groupby('Seal Type')['Seal Count'].sum()
-
-                imported_df['Average Time per Seal (minutes)'] = imported_df['Seal Type'].apply(lambda x: averages.get(x, None))
-                imported_df.dropna(subset=['Average Time per Seal (minutes)'], inplace=True)
-                
-                imported_df['Total Time (minutes)'] = imported_df['Seal Count'] * imported_df['Average Time per Seal (minutes)']
-                
-                st.write("📈 Orders with calculated times:")
-                st.dataframe(imported_df[['Company', 'Seal Type', 'Seal Count', 'Average Time per Seal (minutes)', 'Total Time (minutes)']])
-                
-                total_minutes = imported_df['Total Time (minutes)'].sum()
-                st.success(f"✅ Total estimated time for all imported orders: {total_minutes:.2f} minutes.")
-                
-                # Dodawanie zaimportowanych zleceń do sesji
-                for _, row in imported_df.iterrows():
-                    st.session_state.orders.append({
-                        "Company": row['Company'],
-                        "Seal Type": row['Seal Type'],
-                        "Order Quantity": row['Seal Count'],
-                        "Average Time per Seal (minutes)": row['Average Time per Seal (minutes)']
-                    })
-                
-            else:
-                st.error("❌ The file must contain the columns: 'Company', 'Seal Type', 'Seal Count'")
+        start_datetime = datetime.datetime.combine(start_date, start_time)
+        end_datetime = datetime.datetime.combine(end_date, end_time)
         
-        except Exception as e:
-            st.error(f"❌ Error reading the file: {e}")
+        # 🧮 Obliczenia dla wszystkich zleceń
+        total_time = sum(order["Order Quantity"] * order["Average Time per Seal (minutes)"] for order in st.session_state.orders)
+        estimated_end_datetime = add_work_minutes(start_datetime, total_time)
 
-    # ✅ Obliczanie całkowitego czasu po kliknięciu przycisku
-    if st.button("Calculate Total Time"):
-        if st.session_state.orders:
-            total_time = sum(order["Order Quantity"] * order["Average Time per Seal (minutes)"] for order in st.session_state.orders)
-            st.success(f"✅ Total Estimated Production Time: {total_time:.2f} minutes")
+        if estimated_end_datetime:
+            formatted_time = format_time(total_time)
+            st.success(f"✅ Total Production Time: {formatted_time}")
+            st.success(f"✅ Estimated Completion Time: {estimated_end_datetime.strftime('%Y-%m-%d %H:%M')}")
+
+            # 🔔 Sprawdzanie, czy da się zakończyć pracę przed wybranym czasem
+            if estimated_end_datetime <= end_datetime:
+                st.success("🎉 All orders can be completed within the specified time range!")
+            else:
+                st.error("⛔ It is not possible to complete all orders within the specified time range.")
         else:
-            st.error("⚠️ No orders to calculate.")
+            st.error("⚠️ Calculation failed. Check your input data.")
