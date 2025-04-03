@@ -105,11 +105,33 @@ else:
         "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
     ])
 
-    # Zakładka Home
+        # Zakładka Home
     with tab1:
         st.header("📊 Production Data Overview")
         
-        if st.session_state.user is not None:
+        if st.session_state.user is not None and not df.empty:
+            st.subheader("📋 Current Production Orders")
+            st.dataframe(df)
+            
+            # ✅ Wyświetlenie średniej dziennej produkcji
+            if not df.empty and 'Date' in df.columns:
+                if df['Date'].dtype == 'O':  # Jeśli kolumna 'Date' jest tekstem
+                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+
+                valid_dates = df['Date'].dropna()
+
+                if len(valid_dates) > 0:
+                    total_seals = df['Seal Count'].sum()
+                    total_days = (valid_dates.max() - valid_dates.min()).days + 1
+
+                    if total_days > 0:
+                        average_daily_production = total_seals / total_days
+                        st.write(f"### 📈 Average Daily Production: {average_daily_production:.2f} seals per day")
+                    else:
+                        st.write("### 📈 Average Daily Production: Not enough data to calculate.")
+                else:
+                    st.write("### 📈 Average Daily Production: No valid dates available.")
+
             # ✅ Formularz dodawania zleceń po prawej stronie
             st.sidebar.subheader("➕ Add New Completed Order")
             
