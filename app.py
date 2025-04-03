@@ -1,3 +1,4 @@
+from modules.form import show_form
 import streamlit as st
 import pandas as pd
 import datetime
@@ -105,7 +106,7 @@ else:
         "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
     ])
 
-        # Zakładka Home
+            # Zakładka Home
     with tab1:
         st.header("📊 Production Data Overview")
         
@@ -131,6 +132,9 @@ else:
                         st.write("### 📈 Average Daily Production: Not enough data to calculate.")
                 else:
                     st.write("### 📈 Average Daily Production: No valid dates available.")
+
+        # ✅ Wywołanie formularza z pliku modules/form.py
+        df = show_form(df, save_data_to_gsheets)
 
         # ✅ Formularz dodawania zleceń - teraz widoczny po lewej stronie
         st.sidebar.header("➕ Add New Completed Order")
