@@ -79,7 +79,8 @@ if st.session_state.user is None:
         if user is not None:
             st.session_state.user = user
             st.sidebar.success(f"Logged in as {user['Username']}")
-            st.experimental_rerun()  # ✅ To działa poprawnie podczas logowania
+            # ✅ Użyjemy st.experimental_set_query_params zamiast st.experimental_rerun()
+            st.experimental_set_query_params(logged_in="true")
         else:
             st.sidebar.error("Invalid username or password")
 
@@ -87,9 +88,9 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     
     if st.sidebar.button("Logout"):
-        st.session_state.pop("user")  # ✅ Lepszy sposób na wylogowanie (usuwa tylko 'user' ze stanu)
-        st.experimental_rerun()  # ✅ Można pozostawić do odświeżenia aplikacji
-
+        st.session_state.pop("user")
+        # ✅ Usuwamy parametry z URL żeby wrócić do strony logowania
+        st.experimental_set_query_params()  # Czyści wszystkie parametry w URL
         
     # Zakładki dostępne tylko po zalogowaniu
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
