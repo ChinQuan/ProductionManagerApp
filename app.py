@@ -103,7 +103,7 @@ if st.session_state.user is None:
     if st.sidebar.button("Login"):
         user = login(username, password, users_df)
         if user is not None:
-            st.session_state.user = user
+            st.session_state.user = user.to_dict()  # Zmieniamy user na dict
             st.sidebar.success(f"Logged in as {user['Username']}")
         else:
             st.sidebar.error("Invalid username or password")
@@ -111,6 +111,37 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
+
+# ✅ Pokazujemy zakładki TYLKO jeśli użytkownik jest zalogowany
+if st.session_state.user is not None:
+    tab1, tab2, tab3, tab4, tab5, tab6, tab7 = st.tabs([
+        "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time", "Production Calculator"
+    ])
+
+    with tab1:
+        st.header("📊 Production Data Overview")
+        if not df.empty:
+            st.dataframe(df)
+
+    with tab2:
+        show_charts(df)
+
+    with tab3:
+        if st.session_state.user['Role'] == 'Admin':
+            show_user_management(users_df, save_users_to_gsheets)
+
+    with tab4:
+        show_reports(df)
+
+    with tab5:
+        show_backup_option(df, save_data_to_gsheets)
+
+    with tab6:
+        calculate_average_time(df)
+
+    with tab7:
+        show_calculator(df)
+
 # Formularz dodawania nowych wpisów
 if st.session_state.user is not None:
     st.sidebar.header("➕ Add New Order")
@@ -156,7 +187,7 @@ with tab2:
     show_charts(df)
 
 with tab3:
-    if st.session_state.user['Role'] == 'Admin':
+    if st.session_state.user is not None and 'Role' in st.session_state.user and st.session_state.user['Role'] == 'Admin':
         show_user_management(users_df, save_users_to_gsheets)
 
 with tab4:
