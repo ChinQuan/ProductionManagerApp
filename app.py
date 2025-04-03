@@ -56,6 +56,7 @@ def load_data_from_gsheets():
         if data:
             df = pd.DataFrame(data)
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godziny
+            df = df.dropna(subset=['Date'])  # ✅ Usunięcie wierszy z błędnymi datami
             return df
     except Exception as e:
         st.error(f"❌ Error loading production data: {e}")
@@ -161,14 +162,23 @@ else:
         st.dataframe(df)
 
         # ✅ Wyświetlenie średniej dziennej produkcji
-        total_seals = df['Seal Count'].sum()
-        total_days = (df['Date'].max() - df['Date'].min()).days + 1
+        if not df.empty and 'Date' in df.columns:
+            if df['Date'].dtype == 'O':  # Jeśli kolumna 'Date' jest tekstem
+                df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
 
-        if total_days > 0:
-            average_daily_production = total_seals / total_days
-            st.write(f"### 📈 Average Daily Production: {average_daily_production:.2f} seals per day")
-        else:
-            st.write("### 📈 Average Daily Production: No data available")
+            valid_dates = df['Date'].dropna()
+
+            if len(valid_dates) > 0:
+                total_seals = df['Seal Count'].sum()
+                total_days = (valid_dates.max() - valid_dates.min()).days + 1
+
+                if total_days > 0:
+                    average_daily_production = total_seals / total_days
+                    st.write(f"### 📈 Average Daily Production: {average_daily_production:.2f} seals per day")
+                else:
+                    st.write("### 📈 Average Daily Production: Not enough data to calculate.")
+            else:
+                st.write("### 📈 Average Daily Production: No valid dates available.")
 
     # Zakładka Production Charts
     with tab2:
