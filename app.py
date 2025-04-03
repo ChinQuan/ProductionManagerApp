@@ -55,7 +55,7 @@ def load_data_from_gsheets():
         data = sheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godziny
             return df
     except Exception as e:
         st.error(f"❌ Error loading production data: {e}")
@@ -159,6 +159,16 @@ else:
     if st.session_state.user is not None and not df.empty:
         st.subheader("📋 Current Production Orders")
         st.dataframe(df)
+
+        # ✅ Wyświetlenie średniej dziennej produkcji
+        total_seals = df['Seal Count'].sum()
+        total_days = (df['Date'].max() - df['Date'].min()).days + 1
+
+        if total_days > 0:
+            average_daily_production = total_seals / total_days
+            st.write(f"### 📈 Average Daily Production: {average_daily_production:.2f} seals per day")
+        else:
+            st.write("### 📈 Average Daily Production: No data available")
 
     # Zakładka Production Charts
     with tab2:
