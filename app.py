@@ -96,7 +96,7 @@ else:
     with tab1:
         st.header("📊 Production Data Overview")
         
-        if st.session_state.user:
+        if st.session_state.user is not None:
             st.subheader("➕ Add New Completed Order")
             
             with st.form("production_form", clear_on_submit=True):
@@ -143,41 +143,41 @@ else:
                     save_data_to_gsheets(df)
                     st.success("✅ Order saved successfully!")
     # ✅ Wyświetlanie tabeli z obecnymi zleceniami tylko, jeśli użytkownik jest zalogowany
-    if st.session_state.user and not df.empty:
+    if st.session_state.user is not None and not df.empty:
         st.subheader("📋 Current Production Orders")
         st.dataframe(df)
 
     # Zakładka Production Charts
     with tab2:
-        if st.session_state.user:
+        if st.session_state.user is not None:
             show_charts(df)
         else:
             st.warning("🔒 Please log in to view Production Charts.")
 
     # Zakładka Calculator
     with tab3:
-        if st.session_state.user:
+        if st.session_state.user is not None:
             show_calculator(df)
         else:
             st.warning("🔒 Please log in to access the Calculator.")
 
     # Zakładka User Management (tylko dla Admina)
     with tab4:
-        if st.session_state.user and st.session_state.user['Role'] == 'Admin':
+        if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
             show_user_management(users_df, save_data_to_gsheets)
         else:
             st.warning("🔒 Access restricted to Admins only.")
 
     # Zakładka Reports
     with tab5:
-        if st.session_state.user:
+        if st.session_state.user is not None:
             show_reports(df)
         else:
             st.warning("🔒 Please log in to access Reports.")
 
     # Zakładka Average Production Time
     with tab6:
-        if st.session_state.user:
+        if st.session_state.user is not None:
             calculate_average_time(df)
         else:
             st.warning("🔒 Please log in to view Average Production Time.")
