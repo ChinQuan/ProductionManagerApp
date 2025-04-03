@@ -97,21 +97,32 @@ with tab1:
     st.session_state.current_tab = 'Home'
     st.header("📊 Production Data Overview")
     
-    if st.session_state.user and st.session_state.user['Role'] == 'Admin':
-        show_admin_panel(users_df, save_data_to_gsheets, df, st.session_state.current_tab)
+    if st.session_state.user:
+        if st.session_state.user['Role'] == 'Admin':
+            show_admin_panel(users_df, save_data_to_gsheets, df, st.session_state.current_tab)
 
-    if not df.empty:
-        st.dataframe(df)
+        if not df.empty:
+            st.dataframe(df)
+    else:
+        st.warning("🚫 You must be logged in to view production data.")
 
 with tab2:
     st.session_state.current_tab = 'Charts'
-    show_charts(df)
+    if st.session_state.user:
+        show_charts(df)
+    else:
+        st.warning("🚫 You must be logged in to view charts.")
 
 with tab3:
     st.session_state.current_tab = 'Admin'
     if st.session_state.user and st.session_state.user['Role'] == 'Admin':
         show_user_management(users_df, save_data_to_gsheets)
+    else:
+        st.warning("🚫 Admin access required.")
 
 with tab4:
     st.session_state.current_tab = 'Calculator'
-    show_calculator(df)
+    if st.session_state.user:
+        show_calculator(df)
+    else:
+        st.warning("🚫 You must be logged in to use the calculator.")
