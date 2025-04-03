@@ -14,6 +14,7 @@ from modules.calculator import show_calculator
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
+st.title("Production Manager App")  # ✅ Nazwa aplikacji widoczna w panelu logowania
 
 # Inicjalizacja stanu sesji
 if 'user' not in st.session_state:
@@ -64,11 +65,7 @@ def login(username, password, users_df):
     if not user.empty:
         return user.iloc[0]
     return None
-
-
 # Panel logowania
-st.title("Production Manager App")  # ✅ Dodano nazwę aplikacji na samej górze
-
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
     username = st.sidebar.text_input("Username")
@@ -79,8 +76,7 @@ if st.session_state.user is None:
         if user is not None:
             st.session_state.user = user
             st.sidebar.success(f"Logged in as {user['Username']}")
-            # ✅ Użyjemy st.experimental_set_query_params zamiast st.experimental_rerun()
-            st.experimental_set_query_params(logged_in="true")
+            st.query_params = {"logged_in": "true"}
         else:
             st.sidebar.error("Invalid username or password")
 
@@ -89,8 +85,7 @@ else:
     
     if st.sidebar.button("Logout"):
         st.session_state.pop("user")
-        # ✅ Usuwamy parametry z URL żeby wrócić do strony logowania
-        st.experimental_set_query_params()  # Czyści wszystkie parametry w URL
+        st.query_params = {}  # Czyści parametry URL i wraca do strony logowania
         
     # Zakładki dostępne tylko po zalogowaniu
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
@@ -186,4 +181,3 @@ else:
             calculate_average_time(df)
         else:
             st.warning("🔒 Please log in to view Average Production Time.")
-
