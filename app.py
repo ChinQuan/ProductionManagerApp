@@ -82,7 +82,7 @@ if st.session_state.user is None:
             st.sidebar.success(f"Logged in as {username}")
         else:
             st.sidebar.error("Invalid username or password")
-# ✅ Wyświetlamy dane tylko po poprawnym zalogowaniu
+# ✅ Wyświetlanie zakładek TYLKO po zalogowaniu
 if st.session_state.user is not None:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     
@@ -90,16 +90,26 @@ if st.session_state.user is not None:
         st.session_state.user = None
         st.experimental_rerun()
 
-    if st.session_state.user['Role'] == 'Admin':
-        show_admin_panel(users_df, save_data_to_gsheets, df, "Home")
+    # Zakładki widoczne po zalogowaniu
+    tab1, tab2, tab3, tab4 = st.tabs(["Home", "Production Charts", "Admin", "Calculator"])
 
-    if not df.empty:
+    with tab1:
         st.header("📊 Production Data Overview")
-        st.dataframe(df)
+        
+        if st.session_state.user['Role'] == 'Admin':
+            show_admin_panel(users_df, save_data_to_gsheets, df, "Home")
 
-    show_charts(df)
-    show_calculator(df)
-    show_user_management(users_df, save_data_to_gsheets)
-    show_reports(df)
-    show_backup_option(df, save_data_to_gsheets)
-    calculate_average_time(df)
+        if not df.empty:
+            st.dataframe(df)
+
+    with tab2:
+        show_charts(df)
+
+    with tab3:
+        if st.session_state.user['Role'] == 'Admin':
+            show_user_management(users_df, save_data_to_gsheets)
+        else:
+            st.warning("🚫 Only Admins can access this section.")
+
+    with tab4:
+        show_calculator(df)
