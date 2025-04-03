@@ -13,6 +13,7 @@ from modules.charts import show_charts
 from modules.backup import show_backup_option
 from modules.user_management import show_user_management
 from modules.average_time import calculate_average_time
+from modules.calculator import show_calculator  # Nowy moduł!
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
@@ -73,9 +74,7 @@ def save_data_to_gsheets(dataframe):
     client = connect_to_gsheets()
     sheet = client.open("ProductionManagerApp").sheet1
     
-    # ✅ Konwersja kolumny 'Date' do stringów przed zapisem
     dataframe['Date'] = dataframe['Date'].apply(lambda x: x.strftime('%Y-%m-%d') if pd.notna(x) else None)
-    
     dataframe = dataframe.astype(str)
     sheet.clear()
     sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
@@ -111,128 +110,70 @@ else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-# Formularz dodawania nowych wpisów
-if st.session_state.user is not None:
-    st.sidebar.header("➕ Add New Order")
+# Zakładki
+tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+    "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time", "Production Calculator", "Edit/Delete Orders"
+])
 
-    with st.sidebar.form("production_form"):
-        date = st.date_input("Production Date", value=datetime.date.today())
-        company = st.text_input("Company Name")
-        operator = st.text_input("Operator", value=st.session_state.user['Username'])
-        seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'])
-        seals_count = st.number_input("Number of Seals", min_value=0, step=1)
-        production_time = st.number_input("Production Time (Minutes)", min_value=0.0, step=0.1)
-        downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1)
-        downtime_reason = st.text_input("Reason for Downtime")
-        submitted = st.form_submit_button("Save Order")
+with tab1:
+    st.header("📊 Production Data Overview")
+    st.dataframe(df)
 
-        if submitted:
-            new_entry = {
-                'Date': date,
-                'Company': company,
-                'Seal Count': seals_count,
-                'Operator': operator,
-                'Seal Type': seal_type,
-                'Production Time': production_time,
-                'Downtime': downtime,
-                'Reason for Downtime': downtime_reason
-            }
-            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-            save_data_to_gsheets(df)
-            st.sidebar.success("Order saved successfully!")
+with tab2:
+    show_charts(df)
 
-    # Zakładki
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Home", "Production Charts", "User Management", "Reports", "Backup", "Average Production Time"
-    ])
+with tab3:
+    if st.session_state.user and st.session_state.user['Role'] == 'Admin':
+        show_user_management(users_df, save_users_to_gsheets)
 
-    with tab1:
-        st.header("📊 Production Data Overview")
+with tab4:
+    show_reports(df)
+
+with tab5:
+    show_backup_option(df, save_data_to_gsheets)
+
+with tab6:
+    calculate_average_time(df)
+
+with tab7:
+    show_calculator(df)
+
+with tab8:
+    if st.session_state.user and st.session_state.user['Role'] == 'Admin':
+        st.header("✏️ Edit or Delete Orders")
         
         if not df.empty:
-            # ✅ Konwersja 'Date' do formatu datetime
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-
-            # 📈 Obliczanie średniej produkcji dziennej
-            total_seals = df['Seal Count'].sum()
-            total_days = (df['Date'].max() - df['Date'].min()).days + 1
+            selected_index = st.selectbox("Select Order to Edit/Delete", df.index)
             
-            if total_days > 0:
-                average_daily_production = total_seals / total_days
-            else:
-                average_daily_production = 0
+            if selected_index is not None:
+                selected_row = df.loc[selected_index]
+                
+                with st.form("edit_order_form"):
+                    date = st.date_input("Edit Production Date", value=selected_row['Date'])
+                    company = st.text_input("Edit Company Name", value=selected_row['Company'])
+                    operator = st.text_input("Edit Operator", value=selected_row['Operator'])
+                    seal_type = st.text_input("Edit Seal Type", value=selected_row['Seal Type'])
+                    seals_count = st.number_input("Edit Seal Count", value=int(selected_row['Seal Count']))
+                    production_time = st.number_input("Edit Production Time", value=float(selected_row['Production Time']))
+                    downtime = st.number_input("Edit Downtime", value=float(selected_row['Downtime']))
+                    reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'])
 
-            # 💪 Wyświetlanie średniej produkcji dziennej
-            st.metric(label="📈 Average Daily Production", value=f"{average_daily_production:.2f} seals per day")
+                    update_button = st.form_submit_button("Update Order")
+                    delete_button = st.form_submit_button("Delete Order")
+                    
+                    if update_button:
+                        df.at[selected_index, 'Date'] = date
+                        df.at[selected_index, 'Company'] = company
+                        df.at[selected_index, 'Operator'] = operator
+                        df.at[selected_index, 'Seal Type'] = seal_type
+                        df.at[selected_index, 'Seal Count'] = seals_count
+                        df.at[selected_index, 'Production Time'] = production_time
+                        df.at[selected_index, 'Downtime'] = downtime
+                        df.at[selected_index, 'Reason for Downtime'] = reason
+                        save_data_to_gsheets(df)
+                        st.success("✅ Order updated successfully!")
 
-            # 🔥 Konwersja 'Date' na string przed wyświetleniem
-            df['Date'] = df['Date'].astype(str)
-            st.dataframe(df)
-
-    with tab2:
-        show_charts(df)
-
-    with tab3:
-        if st.session_state.user['Role'] == 'Admin':
-            show_user_management(users_df, save_users_to_gsheets)
-
-    with tab4:
-        show_reports(df)
-
-    with tab5:
-        show_backup_option(df, save_data_to_gsheets)
-
-    with tab6:
-        calculate_average_time(df)
-
-# ✅ Opcja edytowania i usuwania zleceń dostępna tylko dla Admina
-if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
-    st.sidebar.header("✏️ Edit or Delete Orders")
-
-    if not df.empty:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        
-        selected_index = st.sidebar.selectbox("Select Order to Edit", df.index)
-        
-        if selected_index is not None:
-            selected_row = df.loc[selected_index]
-            
-            with st.form("edit_order_form"):
-                selected_date = pd.to_datetime(selected_row['Date'], errors='coerce')
-                if isinstance(selected_date, pd.Timestamp):
-                    date_value = selected_date.date()
-                else:
-                    date_value = datetime.date.today()
-
-                date = st.date_input("Edit Production Date", value=date_value)
-                company = st.text_input("Edit Company Name", value=selected_row['Company'])
-                operator = st.text_input("Edit Operator", value=selected_row['Operator'])
-                seal_type = st.selectbox(
-                    "Edit Seal Type", 
-                    ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'], 
-                    index=['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special'].index(selected_row['Seal Type'])
-                )
-                seals_count = st.number_input("Edit Number of Seals", min_value=0, value=int(selected_row['Seal Count']))
-                production_time = st.number_input("Edit Production Time (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Production Time']))
-                downtime = st.number_input("Edit Downtime (Minutes)", min_value=0.0, step=0.1, value=float(selected_row['Downtime']))
-                downtime_reason = st.text_input("Edit Reason for Downtime", value=selected_row['Reason for Downtime'])
-
-                update_button = st.form_submit_button("Update Order")
-                delete_button = st.form_submit_button("Delete Order")
-
-                if update_button:
-                    df.at[selected_index, 'Date'] = date
-                    df.at[selected_index, 'Company'] = company
-                    df.at[selected_index, 'Operator'] = operator
-                    df.at[selected_index, 'Seal Type'] = seal_type
-                    df.at[selected_index, 'Seal Count'] = seals_count
-                    df.at[selected_index, 'Production Time'] = production_time
-                    df.at[selected_index, 'Downtime'] = downtime
-                    df.at[selected_index, 'Reason for Downtime'] = downtime_reason
-                    save_data_to_gsheets(df)
-                    st.sidebar.success("Order updated successfully!")
-
-                if delete_button:
-                    df = df.drop(selected_index)
-                    save_data_to_gsheets(df)
-                    st.sidebar.success("Order deleted successfully!")
+                    if delete_button:
+                        df = df.drop(selected_index)
+                        save_data_to_gsheets(df)
+                        st.success("✅ Order deleted successfully!")
