@@ -48,25 +48,71 @@ def show_calculator(df):
     if 'orders' not in st.session_state:
         st.session_state.orders = []
 
-    if not df.empty and 'Seal Type' in df.columns:
-        seal_types = list(df['Seal Type'].unique())
-    else:
-        seal_types = ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Special']
+    if df.empty:
+        st.error("🚫 No production data available. Add entries first.")
+        return
     
+    # Pobieranie unikalnych typów uszczelek i firm
+    seal_types = df['Seal Type'].unique().tolist()
+    companies = df['Company'].unique().tolist()
+
+    selected_company = st.selectbox("Select Company", companies)
     selected_seal_type = st.selectbox("Select Seal Type", seal_types)
     order_quantity = st.number_input("Order Quantity", min_value=1, step=1)
-    average_time_per_seal = st.number_input("Enter Average Time per Seal (minutes)", min_value=0.0, step=0.1)
+
+    # Filtrujemy dane według wybranego typu uszczelki i firmy
+    filtered_df = df[(df['Seal Type'] == selected_seal_type) & (df['Company'] == selected_company)]
+
+    if not filtered_df.empty:
+        total_production_time = filtered_df['Production Time'].sum()
+        total_seals = filtered_df['Seal Count'].sum()
+
+        if total_seals > 0:
+            average_time_per_seal = total_production_time / total_seals
+            st.success(f"📈 Average Time per Seal: {format_time(average_time_per_seal)}")
+        else:
+            st.warning("⚠️ No valid data for calculating average time.")
+            average_time_per_seal = 0
+    else:
+        st.warning("⚠️ No data available for the selected combination.")
+        average_time_per_seal = 0
 
     if st.button("Add Order to Calculation"):
-        st.session_state.orders.append({
-            "Seal Type": selected_seal_type,
-            "Order Quantity": order_quantity,
-            "Average Time per Seal": average_time_per_seal
-        })
-        st.success(f"✅ Order '{selected_seal_type}' added successfully!")
+        if average_time_per_seal > 0:
+            st.session_state.orders.append({
+                "Company": selected_company,
+                "Seal Type": selected_seal_type,
+                "Order Quantity": order_quantity,
+                "Average Time per Seal (minutes)": average_time_per_seal
+            })
+            st.success(f"✅ Order '{selected_seal_type}' for '{selected_company}' added successfully!")
+        else:
+            st.error("⚠️ Cannot add order without valid average time.")
 
     if st.session_state.orders:
         st.subheader("📝 Orders to Calculate")
-        
-        # Tabela z dodanymi zleceniami
         orders_df = pd.DataFrame(st.session_state.orders)
+        st.table(orders_df)
+
+        if st.button("Clear All Orders"):
+            st.session_state.orders = []
+            st.warning("📋 All orders have been cleared.")
+
+        # Ustawienia początkowe
+        start_date = st.date_input("Start Date", value=datetime.date.today())
+        start_time = st.time_input("Start Time", value=datetime.time(6, 30))
+        start_datetime = datetime.datetime.combine(start_date, start_time)
+        
+        # Obliczenia dla wszystkich zleceń
+        total_time = 0
+        for order in st.session_state.orders:
+            total_time += order["Order Quantity"] * order["Average Time per Seal (minutes)"]
+        
+        estimated_end_datetime = add_work_minutes(start_datetime, total_time)
+        
+        if estimated_end_datetime:
+            formatted_time = format_time(total_time)
+            st.success(f"✅ Total Production Time: {formatted_time}")
+            st.success(f"✅ Estimated Completion Time: {estimated_end_datetime.strftime('%Y-%m-%d %H:%M')}")
+        else:
+            st.error("⚠️ Calculation failed. Check your input data.")
