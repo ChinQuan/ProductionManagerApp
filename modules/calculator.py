@@ -15,7 +15,7 @@ def add_work_minutes(start_datetime, work_minutes, seal_type, max_days=365):
         
         if weekday < 4:  # Poniedziałek - Czwartek
             if seal_type in ['Standard Hard', 'Standard Soft'] and weekday in [0, 1, 2]:  # Praktykant też pracuje
-                work_day_minutes = 510 + 450  # Ty + Praktykant = 510 + 450 = 960 minut
+                work_day_minutes = 960  # Ty + Praktykant = 510 + 450 = 960 minut
             else:
                 work_day_minutes = 510  # Tylko Ty + pracownik
         elif weekday == 4:  # Piątek - tylko praktykant
@@ -97,9 +97,9 @@ def show_calculator(df):
         orders_df = pd.DataFrame(st.session_state.orders)
         st.table(orders_df)
 
+        # ✅ Lepsze czyszczenie listy zleceń
         if st.button("Clear All Orders"):
-            del st.session_state.orders
-            st.session_state.orders = []
+            st.session_state.orders.clear()  # Używamy .clear() zamiast del lub przypisywania nowej listy
             st.warning("📋 All orders have been cleared.")
 
         # 📅 Wybieranie przedziału czasu na wykonanie zleceń
