@@ -58,6 +58,7 @@ def save_data_to_gsheets(dataframe):
 
 # Wczytanie użytkowników
 users_df = load_users()
+df = pd.DataFrame()  # ✅ Tworzenie pustego DataFrame jako domyślna wartość
 
 # Funkcja logowania
 def login(username, password, users_df):
@@ -97,9 +98,10 @@ else:
         st.header("📊 Production Data Overview")
         
         if st.session_state.user is not None:
-            st.subheader("➕ Add New Completed Order")
+            # ✅ Formularz dodawania zleceń po prawej stronie
+            st.sidebar.subheader("➕ Add New Completed Order")
             
-            with st.form("production_form", clear_on_submit=True):
+            with st.sidebar.form("production_form", clear_on_submit=True):
                 date = st.date_input("Production Date", value=datetime.date.today())
                 company = st.text_input("Company Name")
                 operator = st.text_input("Operator", value=st.session_state.user['Username'])
@@ -141,8 +143,8 @@ else:
                     
                     df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
                     save_data_to_gsheets(df)
-                    st.success("✅ Order saved successfully!")
-    # ✅ Wyświetlanie tabeli z obecnymi zleceniami tylko, jeśli użytkownik jest zalogowany
+                    st.sidebar.success("✅ Order saved successfully!")
+    # ✅ Wyświetlanie tabeli z obecnymi zleceniami tylko, jeśli użytkownik jest zalogowany i dane istnieją
     if st.session_state.user is not None and not df.empty:
         st.subheader("📋 Current Production Orders")
         st.dataframe(df)
