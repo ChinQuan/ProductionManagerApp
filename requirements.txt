@@ -6,4 +6,5 @@ matplotlib==3.6.3
 seaborn==0.12.2
 gspread==5.7.2
 oauth2client==4.1.3
-supabase-py==0.7.1
+supabase-py>=0.8.0
+
