@@ -11,6 +11,28 @@ from modules.user_management import show_user_management
 from modules.average_time import calculate_average_time
 from modules.calculator import show_calculator
 from modules.form import show_form
+import streamlit as st
+from supabase import create_client
+
+# Połączenie z Supabase
+def connect_to_supabase():
+    url = st.secrets["supabase_url"]
+    key = st.secrets["supabase_key"]
+    supabase = create_client(url, key)
+    return supabase
+
+supabase = connect_to_supabase()
+
+# Sprawdzenie połączenia z Supabase
+try:
+    response = supabase.table("users").select("*").execute()
+    if response.data:
+        st.write("✅ Połączono z Supabase! Dane użytkowników załadowane pomyślnie.")
+    else:
+        st.write("⚠️ Połączenie działa, ale brak danych w tabeli 'users'.")
+except Exception as e:
+    st.write(f"❌ Błąd połączenia z Supabase: {e}")
+
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
