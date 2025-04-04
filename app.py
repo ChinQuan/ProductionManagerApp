@@ -1,8 +1,7 @@
 import streamlit as st
 import pandas as pd
 import datetime
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from supabase import create_client, Client
 
 # Importowanie modułów
 from modules.reports import show_reports
@@ -15,66 +14,46 @@ from modules.form import show_form  # ✅ Import formularza z modułu
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
-st.title("Production Manager App")  # ✅ Nazwa aplikacji widoczna w panelu logowania
+st.title("Production Manager App")
 
 # Inicjalizacja stanu sesji
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# Funkcja połączenia z Google Sheets
-def connect_to_gsheets():
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive.file",
-        "https://www.googleapis.com/auth/drive"
-    ]
+# Funkcja połączenia z Supabase
+def connect_to_supabase():
+    url = st.secrets["supabase_url"]
+    key = st.secrets["supabase_key"]
+    return create_client(url, key)
 
-    credentials = st.secrets["gcp_service_account"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
-    client = gspread.authorize(creds)
-    
-    return client
+supabase = connect_to_supabase()
 
-# Funkcja ładowania danych użytkowników z Google Sheets
+# Funkcja ładowania danych użytkowników z Supabase
 def load_users():
-    client = connect_to_gsheets()
     try:
-        sheet = client.open("ProductionManagerApp").worksheet("Users")
-        data = sheet.get_all_records()
-        if data:
-            return pd.DataFrame(data)
+        response = supabase.table("users").select("*").execute()
+        if response.data:
+            return pd.DataFrame(response.data)
     except Exception as e:
         st.error(f"❌ Error loading users: {e}")
-    return pd.DataFrame(columns=['Username', 'Password', 'Role'])
+    return pd.DataFrame(columns=['id', 'Username', 'Password', 'Role'])
 
-# Funkcja ładowania danych produkcyjnych z Google Sheets
-def load_data_from_gsheets():
-    client = connect_to_gsheets()
+# Funkcja ładowania danych produkcyjnych z Supabase
+def load_data_from_supabase():
     try:
-        sheet = client.open("ProductionManagerApp").sheet1
-        data = sheet.get_all_records()
-        if data:
-            df = pd.DataFrame(data)
+        response = supabase.table("production_orders").select("*").execute()
+        if response.data:
+            df = pd.DataFrame(response.data)
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godziny
             df = df.dropna(subset=['Date'])  # ✅ Usunięcie wierszy z błędnymi datami
             return df
     except Exception as e:
         st.error(f"❌ Error loading production data: {e}")
-    return pd.DataFrame(columns=['Date', 'Company', 'Operator', 'Seal Type', 'Seal Count', 'Profile', 'Production Time', 'Downtime', 'Reason for Downtime'])
-
-# Funkcja zapisywania danych do Google Sheets
-def save_data_to_gsheets(dataframe):
-    client = connect_to_gsheets()
-    sheet = client.open("ProductionManagerApp").sheet1
-    
-    dataframe = dataframe.astype(str)
-    sheet.clear()
-    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+    return pd.DataFrame(columns=['id', 'Date', 'Company', 'Operator', 'Seal Type', 'Seal Count', 'Profile', 'Production Time', 'Downtime', 'Reason for Downtime'])
 
 # Wczytanie użytkowników i danych produkcyjnych
 users_df = load_users()
-df = load_data_from_gsheets()
+df = load_data_from_supabase()
 
 # Funkcja logowania
 def login(username, password, users_df):
@@ -134,7 +113,7 @@ else:
                     st.write("### 📈 Average Daily Production: No valid dates available.")
 
         # ✅ Dynamiczny formularz wczytywany z modułów
-        df = show_form(df, save_data_to_gsheets)
+        df = show_form(df, supabase)
     # Zakładka Production Charts
     with tab2:
         if st.session_state.user is not None:
@@ -152,7 +131,7 @@ else:
     # Zakładka User Management (tylko dla Admina)
     with tab4:
         if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
-            show_user_management(users_df, save_data_to_gsheets)
+            show_user_management(users_df, supabase)
         else:
             st.warning("🔒 Access restricted to Admins only.")
 
