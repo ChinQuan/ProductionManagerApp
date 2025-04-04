@@ -54,6 +54,38 @@ def load_data_from_supabase():
 # Wczytanie użytkowników i danych produkcyjnych
 users_df = load_users()
 df = load_data_from_supabase()
+# Funkcja zapisywania nowego zlecenia do Supabase
+def save_order_to_supabase(order_data):
+    try:
+        response = supabase.table("production_orders").insert(order_data).execute()
+        if response.status_code == 201:
+            st.sidebar.success("✅ Order successfully saved to Supabase!")
+        else:
+            st.sidebar.error(f"❌ Failed to save order: {response.json()}")
+    except Exception as e:
+        st.sidebar.error(f"❌ Error saving order: {e}")
+
+# Funkcja aktualizacji istniejącego zlecenia w Supabase
+def update_order_in_supabase(order_id, updated_data):
+    try:
+        response = supabase.table("production_orders").update(updated_data).eq('id', order_id).execute()
+        if response.status_code == 204:
+            st.sidebar.success("✅ Order successfully updated in Supabase!")
+        else:
+            st.sidebar.error(f"❌ Failed to update order: {response.json()}")
+    except Exception as e:
+        st.sidebar.error(f"❌ Error updating order: {e}")
+
+# Funkcja usuwania zlecenia z Supabase
+def delete_order_from_supabase(order_id):
+    try:
+        response = supabase.table("production_orders").delete().eq('id', order_id).execute()
+        if response.status_code == 204:
+            st.sidebar.success("✅ Order successfully deleted from Supabase!")
+        else:
+            st.sidebar.error(f"❌ Failed to delete order: {response.json()}")
+    except Exception as e:
+        st.sidebar.error(f"❌ Error deleting order: {e}")
 
 # Funkcja logowania
 def login(username, password, users_df):
