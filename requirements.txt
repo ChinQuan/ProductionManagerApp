@@ -6,4 +6,3 @@ matplotlib
 seaborn
 gspread
 oauth2client
-supabase-py
