@@ -1,88 +1,69 @@
 import streamlit as st
 import pandas as pd
-import datetime
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-
-# Importowanie modułów
-from modules.reports import show_reports
-from modules.charts import show_charts
-from modules.backup import show_backup_option
-from modules.user_management import show_user_management
-from modules.average_time import calculate_average_time
-from modules.calculator import show_calculator
-from modules.form import show_form  # ✅ Import formularza z modułu
+import psycopg2
+from psycopg2 import sql
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
-st.title("Production Manager App")  # ✅ Nazwa aplikacji widoczna w panelu logowania
+st.title("Production Manager App")
 
-# Inicjalizacja stanu sesji
-if 'user' not in st.session_state:
-    st.session_state.user = None
+# Ustawienia Supabase (z `Streamlit Secrets`)
+DB_HOST = st.secrets["supabase_host"]
+DB_NAME = st.secrets["supabase_db"]
+DB_USER = st.secrets["supabase_user"]
+DB_PASSWORD = st.secrets["supabase_password"]
+DB_PORT = st.secrets.get("supabase_port", 5432)
 
-# Funkcja połączenia z Google Sheets
-def connect_to_gsheets():
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/spreadsheets",
-        "https://www.googleapis.com/auth/drive.file",
-        "https://www.googleapis.com/auth/drive"
-    ]
+# Funkcja połączenia z bazą danych
+def connect_to_supabase():
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        port=DB_PORT
+    )
+    return conn
 
-    credentials = st.secrets["gcp_service_account"]
-    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
-    client = gspread.authorize(creds)
-    
-    return client
-
-# Funkcja ładowania danych użytkowników z Google Sheets
+# Funkcja ładowania danych użytkowników
 def load_users():
-    client = connect_to_gsheets()
     try:
-        sheet = client.open("ProductionManagerApp").worksheet("Users")
-        data = sheet.get_all_records()
-        if data:
-            return pd.DataFrame(data)
+        conn = connect_to_supabase()
+        query = "SELECT * FROM users;"
+        df = pd.read_sql(query, conn)
+        conn.close()
+        return df
     except Exception as e:
-        st.error(f"❌ Error loading users: {e}")
-    return pd.DataFrame(columns=['Username', 'Password', 'Role'])
+        st.error(f"Błąd podczas ładowania użytkowników: {e}")
+        return pd.DataFrame(columns=['id', 'Username', 'Password', 'Role'])
 
-# Funkcja ładowania danych produkcyjnych z Google Sheets
-def load_data_from_gsheets():
-    client = connect_to_gsheets()
+# Funkcja ładowania danych produkcyjnych
+def load_data_from_supabase():
     try:
-        sheet = client.open("ProductionManagerApp").sheet1
-        data = sheet.get_all_records()
-        if data:
-            df = pd.DataFrame(data)
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godziny
-            df = df.dropna(subset=['Date'])  # ✅ Usunięcie wierszy z błędnymi datami
-            return df
+        conn = connect_to_supabase()
+        query = "SELECT * FROM production_orders;"
+        df = pd.read_sql(query, conn)
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+        conn.close()
+        return df
     except Exception as e:
-        st.error(f"❌ Error loading production data: {e}")
-    return pd.DataFrame(columns=['Date', 'Company', 'Operator', 'Seal Type', 'Seal Count', 'Profile', 'Production Time', 'Downtime', 'Reason for Downtime'])
+        st.error(f"Błąd podczas ładowania danych produkcyjnych: {e}")
+        return pd.DataFrame(columns=['id', 'Date', 'Company', 'Operator', 'Seal Type', 'Seal Count', 'Profile', 'Production Time', 'Downtime', 'Reason for Downtime'])
 
-# Funkcja zapisywania danych do Google Sheets
-def save_data_to_gsheets(dataframe):
-    client = connect_to_gsheets()
-    sheet = client.open("ProductionManagerApp").sheet1
-    
-    dataframe = dataframe.astype(str)
-    sheet.clear()
-    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
-
-# Wczytanie użytkowników i danych produkcyjnych
+# Wczytanie danych z Supabase
 users_df = load_users()
-df = load_data_from_gsheets()
-
+df = load_data_from_supabase()
 # Funkcja logowania
 def login(username, password, users_df):
     user = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
     if not user.empty:
         return user.iloc[0]
     return None
+
 # Panel logowania
+if 'user' not in st.session_state:
+    st.session_state.user = None
+
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
     username = st.sidebar.text_input("Username")
@@ -92,81 +73,58 @@ if st.session_state.user is None:
         user = login(username, password, users_df)
         if user is not None:
             st.session_state.user = user
-            st.sidebar.success(f"Logged in as {user['Username']}")
+            st.sidebar.success(f"Zalogowano jako {user['Username']}")
         else:
-            st.sidebar.error("Invalid username or password")
+            st.sidebar.error("Niepoprawny login lub hasło.")
 else:
-    st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
-    
+    st.sidebar.write(f"✅ Zalogowano jako {st.session_state.user['Username']}")
+
     if st.sidebar.button("Logout"):
         st.session_state.user = None
 
-    # Zakładki dostępne tylko po zalogowaniu
-    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
-        "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
-    ])
+# Wyświetlanie tabeli użytkowników dla administratora
+if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
+    st.write("📋 Lista użytkowników:")
+    st.dataframe(users_df)
+# Wyświetlanie danych produkcyjnych
+if st.session_state.user is not None and not df.empty:
+    st.header("📊 Production Data Overview")
+    st.dataframe(df)
 
-    # Zakładka Home
-    with tab1:
-        st.header("📊 Production Data Overview")
-        
-        if st.session_state.user is not None and not df.empty:
-            st.subheader("📋 Current Production Orders")
-            st.dataframe(df)
-            
-            # ✅ Wyświetlenie średniej dziennej produkcji
-            if not df.empty and 'Date' in df.columns:
-                if df['Date'].dtype == 'O':
-                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+# Funkcja zapisywania nowego zlecenia do Supabase
+def save_order_to_supabase(order_data):
+    try:
+        conn = connect_to_supabase()
+        cursor = conn.cursor()
+        insert_query = sql.SQL("""
+            INSERT INTO production_orders (Date, Company, Operator, Seal_Type, Seal_Count, Profile, Production_Time, Downtime, Reason_for_Downtime)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """)
+        cursor.execute(insert_query, order_data)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        st.success("✅ Zlecenie zapisane pomyślnie!")
+    except Exception as e:
+        st.error(f"Błąd podczas zapisywania zlecenia: {e}")
 
-                valid_dates = df['Date'].dropna()
+# Formularz dodawania zlecenia
+if st.session_state.user is not None:
+    st.header("📥 Dodaj nowe zlecenie")
 
-                if len(valid_dates) > 0:
-                    total_seals = df['Seal Count'].sum()
-                    total_days = (valid_dates.max() - valid_dates.min()).days + 1
+    with st.form("new_order_form"):
+        Date = st.date_input("Data")
+        Company = st.text_input("Firma")
+        Operator = st.text_input("Operator")
+        Seal_Type = st.text_input("Rodzaj uszczelki")
+        Seal_Count = st.number_input("Ilość uszczelek", min_value=0)
+        Profile = st.text_input("Profil")
+        Production_Time = st.text_input("Czas produkcji")
+        Downtime = st.text_input("Przestój")
+        Reason_for_Downtime = st.text_input("Powód przestoju")
 
-                    if total_days > 0:
-                        average_daily_production = total_seals / total_days
-                        st.write(f"### 📈 Average Daily Production: {average_daily_production:.2f} seals per day")
-                    else:
-                        st.write("### 📈 Average Daily Production: Not enough data to calculate.")
-                else:
-                    st.write("### 📈 Average Daily Production: No valid dates available.")
+        submit = st.form_submit_button("Zapisz zlecenie")
 
-        # ✅ Dynamiczny formularz wczytywany z modułów
-        df = show_form(df, save_data_to_gsheets)
-    # Zakładka Production Charts
-    with tab2:
-        if st.session_state.user is not None:
-            show_charts(df)
-        else:
-            st.warning("🔒 Please log in to view Production Charts.")
-
-    # Zakładka Calculator
-    with tab3:
-        if st.session_state.user is not None:
-            show_calculator(df)
-        else:
-            st.warning("🔒 Please log in to access the Calculator.")
-
-    # Zakładka User Management (tylko dla Admina)
-    with tab4:
-        if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
-            show_user_management(users_df, save_data_to_gsheets)
-        else:
-            st.warning("🔒 Access restricted to Admins only.")
-
-    # Zakładka Reports
-    with tab5:
-        if st.session_state.user is not None:
-            show_reports(df)
-        else:
-            st.warning("🔒 Please log in to access Reports.")
-
-    # Zakładka Average Production Time
-    with tab6:
-        if st.session_state.user is not None:
-            calculate_average_time(df)
-        else:
-            st.warning("🔒 Please log in to view Average Production Time.")
-
+        if submit:
+            order_data = (Date, Company, Operator, Seal_Type, Seal_Count, Profile, Production_Time, Downtime, Reason_for_Downtime)
+            save_order_to_supabase(order_data)
