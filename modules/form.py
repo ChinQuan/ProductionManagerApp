@@ -1,11 +1,11 @@
-import streamlit as st
+ import streamlit as st
 import pandas as pd
 import datetime
 
-def show_form(df, save_data_to_gsheets):
+def show_form(df, save_order_to_supabase):  # ✅ Zmieniamy nazwę funkcji zapisu
     st.sidebar.header("➕ Add New Completed Order")
     
-    # 🔥 WAŻNE: Przycisk submit musi być wewnątrz `st.form()`
+    # 🔥 Przycisk submit musi być wewnątrz `st.form()`
     with st.sidebar.form(key="production_form", clear_on_submit=True):
         
         # 📅 1. Wybór daty
@@ -15,7 +15,10 @@ def show_form(df, save_data_to_gsheets):
         company = st.text_input("Company Name")
         
         # 👷 3. Wybór operatora
-        operator = st.text_input("Operator", value=st.session_state.user['Username'])
+        if 'user' in st.session_state and st.session_state.user:
+            operator = st.text_input("Operator", value=st.session_state.user['Username'])
+        else:
+            operator = st.text_input("Operator")
         
         # 🪙 4. Wybór typu uszczelki
         seal_type = st.selectbox("Seal Type", ['Standard Soft', 'Standard Hard', 'Custom Soft', 'Custom Hard', 'V-Rings', 'Stack'])
@@ -49,7 +52,7 @@ def show_form(df, save_data_to_gsheets):
                 total_seals = seals_count
             
             new_entry = {
-                'Date': date,
+                'Date': str(date),
                 'Company': company,
                 'Operator': operator,
                 'Seal Type': seal_type,
@@ -60,8 +63,8 @@ def show_form(df, save_data_to_gsheets):
                 'Reason for Downtime': downtime_reason
             }
             
-            df = pd.concat([df, pd.DataFrame([new_entry])], ignore_index=True)
-            save_data_to_gsheets(df)
+            # ✅ Zapis do Supabase zamiast Google Sheets
+            save_order_to_supabase(new_entry)
             st.sidebar.success("✅ Order saved successfully!")
 
-    return df
+    return df  
