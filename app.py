@@ -22,12 +22,16 @@ if 'user' not in st.session_state:
 
 # Funkcja połączenia z Supabase
 def connect_to_supabase():
-    url = st.secrets["supabase_url"]
-    key = st.secrets["supabase_key"]
-    return create_client(url, key)
+    try:
+        url = st.secrets["supabase_url"]
+        key = st.secrets["supabase_key"]
+        client = create_client(url, key)
+        return client
+    except Exception as e:
+        st.error(f"❌ Error connecting to Supabase: {e}")
+        return None
 
 supabase = connect_to_supabase()
-
 # Funkcja ładowania danych użytkowników z Supabase
 def load_users():
     try:
@@ -44,8 +48,8 @@ def load_data_from_supabase():
         response = supabase.table("production_orders").select("*").execute()
         if response.data:
             df = pd.DataFrame(response.data)
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godziny
-            df = df.dropna(subset=['Date'])  # ✅ Usunięcie wierszy z błędnymi datami
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+            df = df.dropna(subset=['Date'])
             return df
     except Exception as e:
         st.error(f"❌ Error loading production data: {e}")
@@ -54,14 +58,15 @@ def load_data_from_supabase():
 # Wczytanie użytkowników i danych produkcyjnych
 users_df = load_users()
 df = load_data_from_supabase()
+
 # Funkcja zapisywania nowego zlecenia do Supabase
 def save_order_to_supabase(order_data):
     try:
         response = supabase.table("production_orders").insert(order_data).execute()
-        if response.status_code == 201:
+        if response.error is None:
             st.sidebar.success("✅ Order successfully saved to Supabase!")
         else:
-            st.sidebar.error(f"❌ Failed to save order: {response.json()}")
+            st.sidebar.error(f"❌ Failed to save order: {response.error}")
     except Exception as e:
         st.sidebar.error(f"❌ Error saving order: {e}")
 
@@ -69,10 +74,10 @@ def save_order_to_supabase(order_data):
 def update_order_in_supabase(order_id, updated_data):
     try:
         response = supabase.table("production_orders").update(updated_data).eq('id', order_id).execute()
-        if response.status_code == 204:
+        if response.error is None:
             st.sidebar.success("✅ Order successfully updated in Supabase!")
         else:
-            st.sidebar.error(f"❌ Failed to update order: {response.json()}")
+            st.sidebar.error(f"❌ Failed to update order: {response.error}")
     except Exception as e:
         st.sidebar.error(f"❌ Error updating order: {e}")
 
@@ -80,19 +85,19 @@ def update_order_in_supabase(order_id, updated_data):
 def delete_order_from_supabase(order_id):
     try:
         response = supabase.table("production_orders").delete().eq('id', order_id).execute()
-        if response.status_code == 204:
+        if response.error is None:
             st.sidebar.success("✅ Order successfully deleted from Supabase!")
         else:
-            st.sidebar.error(f"❌ Failed to delete order: {response.json()}")
+            st.sidebar.error(f"❌ Failed to delete order: {response.error}")
     except Exception as e:
         st.sidebar.error(f"❌ Error deleting order: {e}")
-
 # Funkcja logowania
 def login(username, password, users_df):
     user = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
     if not user.empty:
         return user.iloc[0]
     return None
+
 # Panel logowania
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
@@ -125,13 +130,8 @@ else:
             st.subheader("📋 Current Production Orders")
             st.dataframe(df)
             
-            # ✅ Wyświetlenie średniej dziennej produkcji
             if not df.empty and 'Date' in df.columns:
-                if df['Date'].dtype == 'O':
-                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
-
                 valid_dates = df['Date'].dropna()
-
                 if len(valid_dates) > 0:
                     total_seals = df['Seal Count'].sum()
                     total_days = (valid_dates.max() - valid_dates.min()).days + 1
@@ -144,39 +144,16 @@ else:
                 else:
                     st.write("### 📈 Average Daily Production: No valid dates available.")
 
-        # ✅ Dynamiczny formularz wczytywany z modułów
         df = show_form(df, supabase)
-    # Zakładka Production Charts
+    
     with tab2:
-        if st.session_state.user is not None:
-            show_charts(df)
-        else:
-            st.warning("🔒 Please log in to view Production Charts.")
-
-    # Zakładka Calculator
+        show_charts(df)
     with tab3:
-        if st.session_state.user is not None:
-            show_calculator(df)
-        else:
-            st.warning("🔒 Please log in to access the Calculator.")
-
-    # Zakładka User Management (tylko dla Admina)
+        show_calculator(df)
     with tab4:
-        if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
+        if st.session_state.user['Role'] == 'Admin':
             show_user_management(users_df, supabase)
-        else:
-            st.warning("🔒 Access restricted to Admins only.")
-
-    # Zakładka Reports
     with tab5:
-        if st.session_state.user is not None:
-            show_reports(df)
-        else:
-            st.warning("🔒 Please log in to access Reports.")
-
-    # Zakładka Average Production Time
+        show_reports(df)
     with tab6:
-        if st.session_state.user is not None:
-            calculate_average_time(df)
-        else:
-            st.warning("🔒 Please log in to view Average Production Time.")
+        calculate_average_time(df)
