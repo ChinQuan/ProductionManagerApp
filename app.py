@@ -8,9 +8,6 @@ import datetime
 # ✅ Instalacja supabase-py w kodzie jeśli nie jest zainstalowane
 try:
     from supabase import create_client, Client
-except ImportError:
-    subprocess.run(["pip", "install", "supabase-py"], check=True)
-    from supabase import create_client, Client
 
 # Importowanie modułów
 from modules.reports import show_reports
