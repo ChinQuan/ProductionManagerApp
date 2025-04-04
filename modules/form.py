@@ -41,9 +41,9 @@ def show_form(df, save_data_to_gsheets):
                     downtime = st.number_input("Downtime (Minutes)", min_value=0.0, step=0.1)
                     downtime_reason = st.text_input("Reason for Downtime")
                     
-                    # 💾 Przycisk zapisu
+                    # ✅ MUSI BYĆ TUTAJ! Przyciski Submit i Clear muszą być w obrębie `st.form()`.
                     submitted = st.form_submit_button("Save Entry")
-
+                    
                     if submitted:
                         if seal_type == 'Stack' and actual_seal_count:
                             total_seals = actual_seal_count
