@@ -1,13 +1,8 @@
-# ✅ Część 1: Instalacja supabase-py i importy
-import os
-import subprocess
 import streamlit as st
 import pandas as pd
 import datetime
-
-# ✅ Instalacja supabase-py w kodzie jeśli nie jest zainstalowane
-try:
-    from supabase import create_client, Client
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Importowanie modułów
 from modules.reports import show_reports
@@ -20,30 +15,66 @@ from modules.form import show_form  # ✅ Import formularza z modułu
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
-st.title("Production Manager App")
+st.title("Production Manager App")  # ✅ Nazwa aplikacji widoczna w panelu logowania
 
 # Inicjalizacja stanu sesji
 if 'user' not in st.session_state:
     st.session_state.user = None
-# ✅ Część 2: Połączenie z Supabase i Funkcje Logowania
 
-# Funkcja połączenia z Supabase
-def connect_to_supabase():
-    url = st.secrets["supabase_url"]
-    key = st.secrets["supabase_key"]
-    return create_client(url, key)
+# Funkcja połączenia z Google Sheets
+def connect_to_gsheets():
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/spreadsheets",
+        "https://www.googleapis.com/auth/drive.file",
+        "https://www.googleapis.com/auth/drive"
+    ]
 
-supabase = connect_to_supabase()
+    credentials = st.secrets["gcp_service_account"]
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(credentials, scope)
+    client = gspread.authorize(creds)
+    
+    return client
 
-# Funkcja ładowania danych użytkowników z Supabase
+# Funkcja ładowania danych użytkowników z Google Sheets
 def load_users():
+    client = connect_to_gsheets()
     try:
-        response = supabase.table("users").select("*").execute()
-        if response.data:
-            return pd.DataFrame(response.data)
+        sheet = client.open("ProductionManagerApp").worksheet("Users")
+        data = sheet.get_all_records()
+        if data:
+            return pd.DataFrame(data)
     except Exception as e:
         st.error(f"❌ Error loading users: {e}")
-    return pd.DataFrame(columns=['id', 'Username', 'Password', 'Role'])
+    return pd.DataFrame(columns=['Username', 'Password', 'Role'])
+
+# Funkcja ładowania danych produkcyjnych z Google Sheets
+def load_data_from_gsheets():
+    client = connect_to_gsheets()
+    try:
+        sheet = client.open("ProductionManagerApp").sheet1
+        data = sheet.get_all_records()
+        if data:
+            df = pd.DataFrame(data)
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godziny
+            df = df.dropna(subset=['Date'])  # ✅ Usunięcie wierszy z błędnymi datami
+            return df
+    except Exception as e:
+        st.error(f"❌ Error loading production data: {e}")
+    return pd.DataFrame(columns=['Date', 'Company', 'Operator', 'Seal Type', 'Seal Count', 'Profile', 'Production Time', 'Downtime', 'Reason for Downtime'])
+
+# Funkcja zapisywania danych do Google Sheets
+def save_data_to_gsheets(dataframe):
+    client = connect_to_gsheets()
+    sheet = client.open("ProductionManagerApp").sheet1
+    
+    dataframe = dataframe.astype(str)
+    sheet.clear()
+    sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
+
+# Wczytanie użytkowników i danych produkcyjnych
+users_df = load_users()
+df = load_data_from_gsheets()
 
 # Funkcja logowania
 def login(username, password, users_df):
@@ -51,10 +82,6 @@ def login(username, password, users_df):
     if not user.empty:
         return user.iloc[0]
     return None
-
-# Wczytanie użytkowników
-users_df = load_users()
-
 # Panel logowania
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
@@ -70,27 +97,11 @@ if st.session_state.user is None:
             st.sidebar.error("Invalid username or password")
 else:
     st.sidebar.write(f"✅ Logged in as {st.session_state.user['Username']}")
+    
     if st.sidebar.button("Logout"):
         st.session_state.user = None
-# ✅ Część 3: Zakładki Aplikacji i Wyświetlanie Danych
 
-# Funkcja ładowania danych produkcyjnych z Supabase
-def load_data_from_supabase():
-    try:
-        response = supabase.table("production_orders").select("*").execute()
-        if response.data:
-            df = pd.DataFrame(response.data)
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
-            df = df.dropna(subset=['Date'])
-            return df
-    except Exception as e:
-        st.error(f"❌ Error loading production data: {e}")
-    return pd.DataFrame(columns=['id', 'Date', 'Company', 'Operator', 'Seal Type', 'Seal Count', 'Profile', 'Production Time', 'Downtime', 'Reason for Downtime'])
-
-df = load_data_from_supabase()
-
-# Zakładki dostępne tylko po zalogowaniu
-if st.session_state.user is not None:
+    # Zakładki dostępne tylko po zalogowaniu
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
     ])
@@ -99,12 +110,15 @@ if st.session_state.user is not None:
     with tab1:
         st.header("📊 Production Data Overview")
         
-        if not df.empty:
+        if st.session_state.user is not None and not df.empty:
             st.subheader("📋 Current Production Orders")
             st.dataframe(df)
+            
+            # ✅ Wyświetlenie średniej dziennej produkcji
+            if not df.empty and 'Date' in df.columns:
+                if df['Date'].dtype == 'O':
+                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
 
-            if 'Date' in df.columns:
-                df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
                 valid_dates = df['Date'].dropna()
 
                 if len(valid_dates) > 0:
@@ -112,21 +126,46 @@ if st.session_state.user is not None:
                     total_days = (valid_dates.max() - valid_dates.min()).days + 1
 
                     if total_days > 0:
-                        avg_daily_production = total_seals / total_days
-                        st.write(f"### 📈 Average Daily Production: {avg_daily_production:.2f} seals per day")
+                        average_daily_production = total_seals / total_days
+                        st.write(f"### 📈 Average Daily Production: {average_daily_production:.2f} seals per day")
                     else:
-                        st.write("### 📈 Not enough data to calculate average daily production.")
+                        st.write("### 📈 Average Daily Production: Not enough data to calculate.")
+                else:
+                    st.write("### 📈 Average Daily Production: No valid dates available.")
 
-        # Dynamiczny formularz wczytywany z modułów
-        df = show_form(df, supabase)
-
+        # ✅ Dynamiczny formularz wczytywany z modułów
+        df = show_form(df, save_data_to_gsheets)
+    # Zakładka Production Charts
     with tab2:
-        show_charts(df)
+        if st.session_state.user is not None:
+            show_charts(df)
+        else:
+            st.warning("🔒 Please log in to view Production Charts.")
+
+    # Zakładka Calculator
     with tab3:
-        show_calculator(df)
+        if st.session_state.user is not None:
+            show_calculator(df)
+        else:
+            st.warning("🔒 Please log in to access the Calculator.")
+
+    # Zakładka User Management (tylko dla Admina)
     with tab4:
-        show_user_management(users_df, supabase)
+        if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
+            show_user_management(users_df, save_data_to_gsheets)
+        else:
+            st.warning("🔒 Access restricted to Admins only.")
+
+    # Zakładka Reports
     with tab5:
-        show_reports(df)
+        if st.session_state.user is not None:
+            show_reports(df)
+        else:
+            st.warning("🔒 Please log in to access Reports.")
+
+    # Zakładka Average Production Time
     with tab6:
-        calculate_average_time(df)
+        if st.session_state.user is not None:
+            calculate_average_time(df)
+        else:
+            st.warning("🔒 Please log in to view Average Production Time.")
