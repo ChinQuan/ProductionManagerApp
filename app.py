@@ -44,7 +44,7 @@ def load_data_from_supabase():
         if response.data:
             df = pd.DataFrame(response.data)
             df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godziny
-            df = df.dropna(subset=['Date'])
+            df = df.dropna(subset=['Date'])  # ✅ Usunięcie wierszy z błędnymi datami
             return df
     except Exception as e:
         st.error(f"❌ Error loading production data: {e}")
@@ -94,15 +94,10 @@ else:
             
             # ✅ Wyświetlenie średniej dziennej produkcji
             if not df.empty and 'Date' in df.columns:
-                if df['Date'].dtype == 'O':
-                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
-
                 valid_dates = df['Date'].dropna()
-
                 if len(valid_dates) > 0:
                     total_seals = df['Seal Count'].sum()
                     total_days = (valid_dates.max() - valid_dates.min()).days + 1
-
                     if total_days > 0:
                         average_daily_production = total_seals / total_days
                         st.write(f"### 📈 Average Daily Production: {average_daily_production:.2f} seals per day")
@@ -110,9 +105,9 @@ else:
                         st.write("### 📈 Average Daily Production: Not enough data to calculate.")
                 else:
                     st.write("### 📈 Average Daily Production: No valid dates available.")
+        
+        df = show_form(df, supabase)  # 📥 Formularz do dodawania nowych danych
 
-        # ✅ Dynamiczny formularz wczytywany z modułów
-        df = show_form(df, supabase)
     # Zakładka Production Charts
     with tab2:
         if st.session_state.user is not None:
