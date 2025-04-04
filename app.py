@@ -169,3 +169,4 @@ else:
             calculate_average_time(df)
         else:
             st.warning("🔒 Please log in to view Average Production Time.")
+
