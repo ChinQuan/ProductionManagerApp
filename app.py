@@ -3,15 +3,26 @@ import pandas as pd
 import datetime
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
-
-# Importowanie modułów
 from modules.reports import show_reports
 from modules.charts import show_charts
 from modules.backup import show_backup_option
 from modules.user_management import show_user_management
 from modules.average_time import calculate_average_time
 from modules.calculator import show_calculator
-from modules.form import show_form  # ✅ Import formularza z modułu
+from modules.form import show_form
+from streamlit_lottie import st_lottie
+import requests
+
+# 📌 Funkcja ładowania animacji Lottie
+def load_lottie_url(url: str):
+    r = requests.get(url)
+    if r.status_code != 200:
+        return None
+    return r.json()
+
+# 🎥 URL animacji wylogowania
+logout_animation_url = "https://assets5.lottiefiles.com/packages/lf20_kz5qgtpe.json"
+logout_animation = load_lottie_url(logout_animation_url)
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
@@ -74,6 +85,7 @@ def save_data_to_gsheets(dataframe):
 # Wczytanie użytkowników i danych produkcyjnych
 users_df = load_users()
 df = load_data_from_gsheets()
+
 # Funkcja logowania
 def login(username, password, users_df):
     user = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
@@ -92,6 +104,7 @@ if st.session_state.user is None:
         if user is not None:
             st.session_state.user = user
             st.sidebar.success(f"Logged in as {user['Username']}")
+            st.experimental_rerun()  # 🚀 Odświeżenie po zalogowaniu
         else:
             st.sidebar.error("Invalid username or password")
 else:
@@ -99,6 +112,11 @@ else:
     
     if st.sidebar.button("Logout"):
         st.session_state.user = None
+        st.experimental_rerun()  # 🚀 Odświeżenie po wylogowaniu
+        
+        # 🎥 Wyświetlenie animacji Lottie po wylogowaniu
+        st_lottie(logout_animation, height=300, width=300, key="logout_animation")
+        st.warning("You have been logged out successfully.")
 
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
@@ -108,7 +126,7 @@ else:
     with tab1:
         st.header("📊 Production Data Overview")
         
-        if st.session_state.user is not None and not df.empty:
+        if not df.empty:
             st.subheader("📋 Current Production Orders")
             st.dataframe(df)
             
@@ -129,31 +147,17 @@ else:
         df = show_form(df, save_data_to_gsheets)
 
     with tab2:
-        if st.session_state.user is not None:
-            show_charts(df)
-        else:
-            st.warning("🔒 Please log in to view Production Charts.")
-
-    with tab5:
-        if st.session_state.user is not None:
-            show_reports(df)
-        else:
-            st.warning("🔒 Please log in to access Reports.")
+        show_charts(df)
 
     with tab3:
-        if st.session_state.user is not None:
-            show_calculator(df)
-        else:
-            st.warning("🔒 Please log in to access the Calculator.")
+        show_calculator(df)
 
     with tab4:
-        if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
+        if st.session_state.user['Role'] == 'Admin':
             show_user_management(users_df, save_data_to_gsheets)
-        else:
-            st.warning("🔒 Access restricted to Admins only.")
+
+    with tab5:
+        show_reports(df)
 
     with tab6:
-        if st.session_state.user is not None:
-            calculate_average_time(df)
-        else:
-            st.warning("🔒 Please log in to view Average Production Time.")
+        calculate_average_time(df)
