@@ -107,31 +107,53 @@ else:
     ])
 
     # Zakładka Home
-    with tab1:
-        st.header("📊 Production Data Overview")
+with tab1:
+    st.header("📊 Production Data Overview")
+    
+    if st.session_state.user is not None and not df.empty:
+        st.subheader("📋 Current Production Orders")
+        st.dataframe(df)
         
-        if st.session_state.user is not None and not df.empty:
-            st.subheader("📋 Current Production Orders")
-            st.dataframe(df)
-            
-            # ✅ Wyświetlenie średniej dziennej produkcji
-            if not df.empty and 'Date' in df.columns:
-                if df['Date'].dtype == 'O':
-                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+        # ✅ Wyświetlenie średniej dziennej produkcji
+        if not df.empty and 'Date' in df.columns:
+            if df['Date'].dtype == 'O':
+                df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
 
-                valid_dates = df['Date'].dropna()
+            valid_dates = df['Date'].dropna()
 
-                if len(valid_dates) > 0:
-                    total_seals = df['Seal Count'].sum()
-                    total_days = (valid_dates.max() - valid_dates.min()).days + 1
+            if len(valid_dates) > 0:
+                total_seals = df['Seal Count'].sum()
 
-                    if total_days > 0:
-                        average_daily_production = total_seals / total_days
-                        st.write(f"### 📈 Average Daily Production: {average_daily_production:.2f} seals per day")
-                    else:
-                        st.write("### 📈 Average Daily Production: Not enough data to calculate.")
+                # 🔍 Filtrujemy tylko dni robocze (poniedziałek - piątek)
+                working_days_df = df[pd.to_datetime(df['Date']).dt.dayofweek < 5]
+
+                # Liczymy unikalne dni robocze
+                unique_working_days = working_days_df['Date'].nunique()
+
+                # Alternatywne liczenie unikalnych dni (faktyczne dni ze zleceń)
+                unique_order_days = df['Date'].nunique()
+
+                st.write(f"📅 Total unique working days (Mon-Fri): {unique_working_days}")
+                st.write(f"📅 Total unique dates in orders: {unique_order_days}")
+
+                # 📈 Obliczenie średniej dziennej produkcji na podstawie dni roboczych
+                if unique_working_days > 0:
+                    average_daily_production = total_seals / unique_working_days
+                    st.write(f"### 📈 Average Daily Production (Working Days Only): {average_daily_production:.2f} seals per day")
                 else:
-                    st.write("### 📈 Average Daily Production: No valid dates available.")
+                    st.write("### 📈 Average Daily Production (Working Days Only): Not enough data to calculate.")
+                
+                # 📈 Alternatywne obliczenie średniej dziennej produkcji na podstawie faktycznych dni w zamówieniach
+                if unique_order_days > 0:
+                    average_daily_production_alt = total_seals / unique_order_days
+                    st.write(f"### 📈 Average Daily Production (Order Dates Only): {average_daily_production_alt:.2f} seals per day")
+                else:
+                    st.write("### 📈 Average Daily Production (Order Dates Only): Not enough data to calculate.")
+            else:
+                st.write("### 📈 Average Daily Production: No valid dates available.")
+
+        # ✅ Dynamiczny formularz wczytywany z modułów
+        df = show_form(df, save_data_to_gsheets)
 
         # ✅ Dynamiczny formularz wczytywany z modułów
         df = show_form(df, save_data_to_gsheets)
