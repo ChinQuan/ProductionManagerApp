@@ -1,6 +1,6 @@
 import pandas as pd
 import streamlit as st
-from datetime import datetime
+from datetime import datetime, date
 
 def show_reports(df):
     st.header("📊 Reports")
@@ -9,7 +9,7 @@ def show_reports(df):
         st.write("No data available.")
         return
 
-    # ✅ Konwersja kolumny 'Date' do formatu datetime, a następnie tylko do daty (bez godziny)
+    # ✅ Konwersja kolumny 'Date' do formatu datetime.date (tylko data, bez godzin)
     try:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # 🔥 Usunięcie godziny, pozostaje tylko data
         st.write("📅 Debug: DataFrame after converting 'Date' column (Date Only)")
@@ -19,7 +19,7 @@ def show_reports(df):
         return
 
     # 📅 Filtr daty - wybór przedziału czasowego
-    start_date = st.sidebar.date_input("Start Date", value=datetime.now().date() - pd.DateOffset(days=30), key="start_date")
+    start_date = st.sidebar.date_input("Start Date", value=(datetime.now().date() - pd.DateOffset(days=30)).date(), key="start_date")
     end_date = st.sidebar.date_input("End Date", value=datetime.now().date(), key="end_date")
 
     # ✅ Pokaż pełne dane przed filtracją (to będą dane używane w raportach)
@@ -27,7 +27,7 @@ def show_reports(df):
     st.dataframe(df)
 
     # ✅ Filtrujemy dane na podstawie wybranego przedziału dat
-    filtered_df = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+    filtered_df = df[(df['Date'] >= start_date) & (df['Date'] <= end_date)]  # 🔥 Porównujemy tylko daty (YYYY-MM-DD)
 
     if filtered_df.empty:
         st.write("No data available for the selected date range.")
