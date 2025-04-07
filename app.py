@@ -56,8 +56,8 @@ def load_data_from_gsheets():
         data = sheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godziny
-            df = df.dropna(subset=['Date'])  # ✅ Usunięcie wierszy z błędnymi datami
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+            df = df.dropna(subset=['Date'])
             return df
     except Exception as e:
         st.error(f"❌ Error loading production data: {e}")
@@ -67,7 +67,6 @@ def load_data_from_gsheets():
 def save_data_to_gsheets(dataframe):
     client = connect_to_gsheets()
     sheet = client.open("ProductionManagerApp").sheet1
-    
     dataframe = dataframe.astype(str)
     sheet.clear()
     sheet.update([dataframe.columns.values.tolist()] + dataframe.values.tolist())
@@ -75,13 +74,13 @@ def save_data_to_gsheets(dataframe):
 # Wczytanie użytkowników i danych produkcyjnych
 users_df = load_users()
 df = load_data_from_gsheets()
-
 # Funkcja logowania
 def login(username, password, users_df):
     user = users_df[(users_df['Username'] == username) & (users_df['Password'] == password)]
     if not user.empty:
         return user.iloc[0]
     return None
+
 # Panel logowania
 if st.session_state.user is None:
     st.sidebar.title("🔑 Login")
@@ -101,94 +100,70 @@ else:
     if st.sidebar.button("Logout"):
         st.session_state.user = None
 
-    # Zakładki dostępne tylko po zalogowaniu
     tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "Home", "Production Charts", "Calculator", "User Management", "Reports", "Average Production Time"
     ])
 
     # Zakładka Home
-with tab1:
-    st.header("📊 Production Data Overview")
-    
-    if st.session_state.user is not None and not df.empty:
-        st.subheader("📋 Current Production Orders")
-        st.dataframe(df)
+    with tab1:
+        st.header("📊 Production Data Overview")
         
-        # ✅ Wyświetlenie średniej dziennej produkcji
-        if not df.empty and 'Date' in df.columns:
-            if df['Date'].dtype == 'O':
-                df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+        if st.session_state.user is not None and not df.empty:
+            st.subheader("📋 Current Production Orders")
+            st.dataframe(df)
+            
+            if not df.empty and 'Date' in df.columns:
+                if df['Date'].dtype == 'O':
+                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
 
-            valid_dates = df['Date'].dropna()
-
-            if len(valid_dates) > 0:
                 total_seals = df['Seal Count'].sum()
 
                 # 🔍 Filtrujemy tylko dni robocze (poniedziałek - piątek)
                 working_days_df = df[pd.to_datetime(df['Date']).dt.dayofweek < 5]
-
-                # Liczymy unikalne dni robocze
                 unique_working_days = working_days_df['Date'].nunique()
 
-                # Alternatywne liczenie unikalnych dni (faktyczne dni ze zleceń)
+                # Alternatywne liczenie unikalnych dni
                 unique_order_days = df['Date'].nunique()
 
                 st.write(f"📅 Total unique working days (Mon-Fri): {unique_working_days}")
-                st.write(f"📅 Total unique dates in orders: {unique_order_days}")
+                st.write(f"📅 Total unique order dates: {unique_order_days}")
 
-                # 📈 Obliczenie średniej dziennej produkcji na podstawie dni roboczych
                 if unique_working_days > 0:
-                    average_daily_production = total_seals / unique_working_days
-                    st.write(f"### 📈 Average Daily Production (Working Days Only): {average_daily_production:.2f} seals per day")
-                else:
-                    st.write("### 📈 Average Daily Production (Working Days Only): Not enough data to calculate.")
+                    average_working_days = total_seals / unique_working_days
+                    st.write(f"### 📈 Avg. Daily Production (Working Days Only): {average_working_days:.2f} seals per day")
                 
-                # 📈 Alternatywne obliczenie średniej dziennej produkcji na podstawie faktycznych dni w zamówieniach
                 if unique_order_days > 0:
-                    average_daily_production_alt = total_seals / unique_order_days
-                    st.write(f"### 📈 Average Daily Production (Order Dates Only): {average_daily_production_alt:.2f} seals per day")
-                else:
-                    st.write("### 📈 Average Daily Production (Order Dates Only): Not enough data to calculate.")
-            else:
-                st.write("### 📈 Average Daily Production: No valid dates available.")
+                    average_order_days = total_seals / unique_order_days
+                    st.write(f"### 📈 Avg. Daily Production (Order Dates Only): {average_order_days:.2f} seals per day")
 
-        # ✅ Dynamiczny formularz wczytywany z modułów
         df = show_form(df, save_data_to_gsheets)
 
-        # ✅ Dynamiczny formularz wczytywany z modułów
-        df = show_form(df, save_data_to_gsheets)
-    # Zakładka Production Charts
     with tab2:
         if st.session_state.user is not None:
             show_charts(df)
         else:
             st.warning("🔒 Please log in to view Production Charts.")
 
-    # Zakładka Calculator
     with tab3:
         if st.session_state.user is not None:
             show_calculator(df)
         else:
             st.warning("🔒 Please log in to access the Calculator.")
 
-    # Zakładka User Management (tylko dla Admina)
     with tab4:
         if st.session_state.user is not None and st.session_state.user['Role'] == 'Admin':
             show_user_management(users_df, save_data_to_gsheets)
         else:
             st.warning("🔒 Access restricted to Admins only.")
 
-    # Zakładka Reports
     with tab5:
         if st.session_state.user is not None:
             show_reports(df)
         else:
             st.warning("🔒 Please log in to access Reports.")
 
-    # Zakładka Average Production Time
     with tab6:
         if st.session_state.user is not None:
             calculate_average_time(df)
         else:
             st.warning("🔒 Please log in to view Average Production Time.")
-
