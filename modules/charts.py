@@ -8,7 +8,21 @@ def show_charts(df):
     if not df.empty:
         # ✅ Konwersja kolumny 'Date' do formatu datetime i wyciągnięcie tylko daty
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
-        
+
+        # 📅 Opcje filtrowania
+        filter_option = st.selectbox(
+            "Select Data Filter",
+            ["All Data", "Working Days Only (Mon-Fri)", "Order Dates Only"]
+        )
+
+        if filter_option == "Working Days Only (Mon-Fri)":
+            # 🔍 Filtrowanie tylko dni roboczych (poniedziałek - piątek)
+            df = df[pd.to_datetime(df['Date']).dt.dayofweek < 5]
+
+        elif filter_option == "Order Dates Only":
+            # 🔍 Usunięcie pustych lub błędnych dat
+            df = df.dropna(subset=['Date'])
+
         # 🔍 Wykres trendu dziennej produkcji
         daily_production = df.groupby('Date')['Seal Count'].sum().reset_index()
         
@@ -22,8 +36,8 @@ def show_charts(df):
         fig.update_layout(
             xaxis_title="Date", 
             yaxis_title="Seal Count",
-            xaxis_type='category',  # 🔥 Traktowanie dat jako kategorie
-            xaxis_tickformat='%Y-%m-%d'  # 🔥 Formatowanie osi X, by pokazywać tylko daty
+            xaxis_type='category',
+            xaxis_tickformat='%Y-%m-%d'
         )
         st.plotly_chart(fig)
 
