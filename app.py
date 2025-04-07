@@ -15,7 +15,7 @@ from modules.form import show_form  # ✅ Import formularza z modułu
 
 # Konfiguracja aplikacji
 st.set_page_config(page_title="Production Manager App", layout="wide")
-st.title("Production Manager App")  # ✅ Nazwa aplikacji widoczna w panelu logowania
+st.title("Production Manager App")
 
 # Inicjalizacja stanu sesji
 if 'user' not in st.session_state:
@@ -56,7 +56,7 @@ def load_data_from_gsheets():
         data = sheet.get_all_records()
         if data:
             df = pd.DataFrame(data)
-            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
+            df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # ✅ Tylko data, bez godzin
             df = df.dropna(subset=['Date'])
             return df
     except Exception as e:
@@ -112,21 +112,11 @@ else:
             st.subheader("📋 Current Production Orders")
             st.dataframe(df)
             
-            if not df.empty and 'Date' in df.columns:
-                if df['Date'].dtype == 'O':
-                    df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date
-
+            if 'Date' in df.columns:
                 total_seals = df['Seal Count'].sum()
-
-                # 🔍 Filtrujemy tylko dni robocze (poniedziałek - piątek)
                 working_days_df = df[pd.to_datetime(df['Date']).dt.dayofweek < 5]
                 unique_working_days = working_days_df['Date'].nunique()
-
-                # Alternatywne liczenie unikalnych dni
                 unique_order_days = df['Date'].nunique()
-
-                st.write(f"📅 Total unique working days (Mon-Fri): {unique_working_days}")
-                st.write(f"📅 Total unique order dates: {unique_order_days}")
 
                 if unique_working_days > 0:
                     average_working_days = total_seals / unique_working_days
@@ -144,6 +134,12 @@ else:
         else:
             st.warning("🔒 Please log in to view Production Charts.")
 
+    with tab5:
+        if st.session_state.user is not None:
+            show_reports(df)
+        else:
+            st.warning("🔒 Please log in to access Reports.")
+
     with tab3:
         if st.session_state.user is not None:
             show_calculator(df)
@@ -155,12 +151,6 @@ else:
             show_user_management(users_df, save_data_to_gsheets)
         else:
             st.warning("🔒 Access restricted to Admins only.")
-
-    with tab5:
-        if st.session_state.user is not None:
-            show_reports(df)
-        else:
-            st.warning("🔒 Please log in to access Reports.")
 
     with tab6:
         if st.session_state.user is not None:
