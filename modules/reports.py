@@ -9,18 +9,18 @@ def show_reports(df):
         st.write("No data available.")
         return
 
-    # ✅ Konwersja kolumny 'Date' do formatu datetime i wyświetlenie pierwszych wierszy dla debugowania
+    # ✅ Konwersja kolumny 'Date' do formatu datetime, a następnie tylko do daty (bez godziny)
     try:
-        df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
-        st.write("📅 Debug: DataFrame after converting 'Date' column")
+        df['Date'] = pd.to_datetime(df['Date'], errors='coerce').dt.date  # 🔥 Usunięcie godziny, pozostaje tylko data
+        st.write("📅 Debug: DataFrame after converting 'Date' column (Date Only)")
         st.dataframe(df.head(10))
     except Exception as e:
         st.error(f"❌ Error converting dates: {e}")
         return
 
     # 📅 Filtr daty - wybór przedziału czasowego
-    start_date = st.sidebar.date_input("Start Date", value=datetime.now() - pd.DateOffset(days=30), key="start_date")
-    end_date = st.sidebar.date_input("End Date", value=datetime.now(), key="end_date")
+    start_date = st.sidebar.date_input("Start Date", value=datetime.now().date() - pd.DateOffset(days=30), key="start_date")
+    end_date = st.sidebar.date_input("End Date", value=datetime.now().date(), key="end_date")
 
     # ✅ Pokaż pełne dane przed filtracją (to będą dane używane w raportach)
     st.write("📅 Debug: Full DataFrame before date filtering")
