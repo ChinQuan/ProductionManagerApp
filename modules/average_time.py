@@ -1,15 +1,3 @@
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-
-def format_time(seconds):
-    if seconds < 60:
-        return f"{int(seconds)} seconds"
-    else:
-        minutes = int(seconds // 60)
-        remaining_seconds = int(seconds % 60)
-        return f"{minutes} minute{'s' if minutes > 1 else ''} {remaining_seconds} seconds"
-
 def calculate_average_time(df):
     st.header("⏳ Average Production Time Analysis")
 
@@ -47,11 +35,14 @@ def calculate_average_time(df):
     # Filtrujemy dane na podstawie wybranego przedziału czasowego
     filtered_df = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
 
+    # **Filtrujemy tylko dni robocze (poniedziałek - piątek)**
+    filtered_df = filtered_df[filtered_df['Date'].dt.dayofweek < 5]  # 0 = Poniedziałek, ..., 4 = Piątek
+
     if filtered_df.empty:
         st.write("No data available for the selected date range.")
         return
 
-    st.write(f"Showing data from **{start_date.date()}** to **{end_date.date()}**")
+    st.write(f"Showing data from **{start_date.date()}** to **{end_date.date()}** (Working Days Only)")
 
     # 📌 Stylizacja tabeli CSS dla wyśrodkowania
     st.markdown(
