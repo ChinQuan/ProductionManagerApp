@@ -9,25 +9,35 @@ def show_reports(df):
         st.write("No data available.")
         return
 
-    # ✅ Konwersja kolumny 'Date' do formatu datetime
+    # ✅ Konwersja kolumny 'Date' do formatu datetime i wyświetlenie pierwszych wierszy dla debugowania
     try:
         df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+        st.write("📅 Debug: DataFrame after converting 'Date' column")
+        st.dataframe(df.head(10))
     except Exception as e:
         st.error(f"❌ Error converting dates: {e}")
         return
 
-    # 📅 Filtr daty
+    # 📅 Filtr daty - wybór przedziału czasowego
     start_date = st.sidebar.date_input("Start Date", value=datetime.now() - pd.DateOffset(days=30), key="start_date")
     end_date = st.sidebar.date_input("End Date", value=datetime.now(), key="end_date")
 
-    # ✅ Filtrujemy dane na podstawie przedziału dat
+    # ✅ Pokaż pełne dane przed filtracją
+    st.write("📅 Debug: Full DataFrame before date filtering")
+    st.dataframe(df)
+
+    # ✅ Filtrujemy dane na podstawie wybranego przedziału dat
     filtered_df = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
+
+    # ✅ Pokaż dane po filtrowaniu przed nałożeniem innych filtrów
+    st.write("📅 Debug: DataFrame after date filtering")
+    st.dataframe(filtered_df)
 
     if filtered_df.empty:
         st.write("No data available for the selected date range.")
         return
 
-    # 🔍 Wybór typu filtrowania z unikalnym kluczem `key`
+    # 🔍 Wybór typu filtrowania
     filter_option = st.selectbox(
         "Select Data Filter",
         ["All Data", "Working Days Only (Mon-Fri)", "Order Dates Only"],
@@ -36,9 +46,13 @@ def show_reports(df):
 
     if filter_option == "Working Days Only (Mon-Fri)":
         filtered_df = filtered_df[filtered_df['Date'].dt.dayofweek < 5]
+        st.write("📅 Debug: Filtered DataFrame (Working Days Only)")
+        st.dataframe(filtered_df)
 
     elif filter_option == "Order Dates Only":
         filtered_df = filtered_df.dropna(subset=['Date'])
+        st.write("📅 Debug: Filtered DataFrame (Order Dates Only)")
+        st.dataframe(filtered_df)
 
     if filtered_df.empty:
         st.write("No data available after applying the filter.")
