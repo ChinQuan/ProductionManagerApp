@@ -1,7 +1,3 @@
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-
 def calculate_average_time(df):
     st.header("⏳ Average Production Time Analysis")
 
@@ -14,7 +10,7 @@ def calculate_average_time(df):
         return
 
     # Konwersja kolumny 'Date' do formatu datetime
-    df['Date'] = pd.to_datetime(df['Date'])
+    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
 
     # 📅 Opcje wyboru przedziału czasowego
     st.sidebar.header("📅 Filter by Date Range")
@@ -40,10 +36,18 @@ def calculate_average_time(df):
     filtered_df = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
 
     # **Nowa funkcjonalność: Filtrujemy tylko dni robocze (poniedziałek - piątek)**
-    filtered_df = filtered_df[filtered_df['Date'].dt.dayofweek < 5]  # 0 = Poniedziałek, ..., 4 = Piątek
+    working_days_df = filtered_df[filtered_df['Date'].dt.dayofweek < 5]  # 0 = Poniedziałek, ..., 4 = Piątek
 
-    if filtered_df.empty:
-        st.write("No data available for the selected date range.")
+    if working_days_df.empty:
+        st.write("❌ No data available for the selected date range (Working Days Only).")
         return
 
-    st.write(f"Showing data from **{start_date.date()}** to **{end_date.date()}** (Weekdays Only)")
+    st.write(f"Showing data from **{start_date.date()}** to **{end_date.date()}** (Working Days Only)")
+
+    # 📌 Wyświetl przefiltrowane dane jako tabelę do debugowania
+    st.write("### Debug: Filtered DataFrame (Working Days Only)")
+    st.dataframe(working_days_df)
+
+    # Przykład wyświetlania ilości danych i liczby unikalnych dat
+    st.write(f"Total rows: {len(working_days_df)}")
+    st.write(f"Unique dates: {working_days_df['Date'].nunique()}")
