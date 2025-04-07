@@ -17,8 +17,8 @@ def show_reports(df):
         return
 
     # 📅 Filtr daty
-    start_date = st.sidebar.date_input("Start Date", value=datetime.now() - pd.DateOffset(days=30))
-    end_date = st.sidebar.date_input("End Date", value=datetime.now())
+    start_date = st.sidebar.date_input("Start Date", value=datetime.now() - pd.DateOffset(days=30), key="start_date")
+    end_date = st.sidebar.date_input("End Date", value=datetime.now(), key="end_date")
 
     # ✅ Filtrujemy dane na podstawie przedziału dat
     filtered_df = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
@@ -27,10 +27,11 @@ def show_reports(df):
         st.write("No data available for the selected date range.")
         return
 
-    # 🔍 Wybór typu filtrowania
+    # 🔍 Wybór typu filtrowania z unikalnym kluczem `key`
     filter_option = st.selectbox(
         "Select Data Filter",
-        ["All Data", "Working Days Only (Mon-Fri)", "Order Dates Only"]
+        ["All Data", "Working Days Only (Mon-Fri)", "Order Dates Only"],
+        key="report_filter_option"
     )
 
     if filter_option == "Working Days Only (Mon-Fri)":
