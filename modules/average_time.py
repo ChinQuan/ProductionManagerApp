@@ -1,3 +1,15 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta
+
+def format_time(seconds):
+    if seconds < 60:
+        return f"{int(seconds)} seconds"
+    else:
+        minutes = int(seconds // 60)
+        remaining_seconds = int(seconds % 60)
+        return f"{minutes} minute{'s' if minutes > 1 else ''} {remaining_seconds} seconds"
+
 def calculate_average_time(df):
     st.header("⏳ Average Production Time Analysis")
 
@@ -10,7 +22,7 @@ def calculate_average_time(df):
         return
 
     # Konwersja kolumny 'Date' do formatu datetime
-    df['Date'] = pd.to_datetime(df['Date'], errors='coerce')
+    df['Date'] = pd.to_datetime(df['Date'])
 
     # 📅 Opcje wyboru przedziału czasowego
     st.sidebar.header("📅 Filter by Date Range")
@@ -35,19 +47,89 @@ def calculate_average_time(df):
     # Filtrujemy dane na podstawie wybranego przedziału czasowego
     filtered_df = df[(df['Date'] >= pd.to_datetime(start_date)) & (df['Date'] <= pd.to_datetime(end_date))]
 
-    # **Nowa funkcjonalność: Filtrujemy tylko dni robocze (poniedziałek - piątek)**
-    working_days_df = filtered_df[filtered_df['Date'].dt.dayofweek < 5]  # 0 = Poniedziałek, ..., 4 = Piątek
-
-    if working_days_df.empty:
-        st.write("❌ No data available for the selected date range (Working Days Only).")
+    if filtered_df.empty:
+        st.write("No data available for the selected date range.")
         return
 
-    st.write(f"Showing data from **{start_date.date()}** to **{end_date.date()}** (Working Days Only)")
+    st.write(f"Showing data from **{start_date.date()}** to **{end_date.date()}**")
 
-    # 📌 Wyświetl przefiltrowane dane jako tabelę do debugowania
-    st.write("### Debug: Filtered DataFrame (Working Days Only)")
-    st.dataframe(working_days_df)
+    # 📌 Stylizacja tabeli CSS dla wyśrodkowania
+    st.markdown(
+        """
+        <style>
+        table td, table th {
+            text-align: center !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True
+    )
 
-    # Przykład wyświetlania ilości danych i liczby unikalnych dat
-    st.write(f"Total rows: {len(working_days_df)}")
-    st.write(f"Unique dates: {working_days_df['Date'].nunique()}")
+    # Analiza na podstawie typu uszczelki
+    seal_types = filtered_df['Seal Type'].unique()
+    average_times = {}
+
+    for seal_type in seal_types:
+        filtered_type_df = filtered_df[filtered_df['Seal Type'] == seal_type]
+        total_time = filtered_type_df['Production Time'].sum()
+        total_seals = filtered_type_df['Seal Count'].sum()
+
+        if total_seals > 0:
+            avg_time = (total_time / total_seals) * 60  # 🔥 Konwersja na sekundy
+            seals_per_minute = 60 / avg_time if avg_time > 0 else 0
+            average_times[seal_type] = (format_time(avg_time), seals_per_minute)
+        else:
+            average_times[seal_type] = (None, None)
+
+    st.subheader("📊 By Seal Type")
+    result_df = pd.DataFrame(
+        [(seal_type, avg[0], avg[1]) for seal_type, avg in average_times.items()],
+        columns=['Seal Type', 'Average Time per Seal', 'Seals Produced per Minute (UPM)']
+    )
+    st.table(result_df)
+
+    # Analiza na podstawie firmy
+    companies = filtered_df['Company'].unique()
+    company_times = {}
+
+    for company in companies:
+        filtered_company_df = filtered_df[filtered_df['Company'] == company]
+        total_time = filtered_company_df['Production Time'].sum()
+        total_seals = filtered_company_df['Seal Count'].sum()
+
+        if total_seals > 0:
+            avg_time = (total_time / total_seals) * 60  # 🔥 Konwersja na sekundy
+            seals_per_minute = 60 / avg_time if avg_time > 0 else 0
+            company_times[company] = (format_time(avg_time), seals_per_minute)
+        else:
+            company_times[company] = (None, None)
+
+    st.subheader("📊 By Company")
+    company_df = pd.DataFrame(
+        [(company, avg[0], avg[1]) for company, avg in company_times.items()],
+        columns=['Company', 'Average Time per Seal', 'Seals Produced per Minute (UPM)']
+    )
+    st.table(company_df)
+
+    # Analiza na podstawie operatora
+    operators = filtered_df['Operator'].unique()
+    operator_times = {}
+
+    for operator in operators:
+        filtered_operator_df = filtered_df[filtered_df['Operator'] == operator]
+        total_time = filtered_operator_df['Production Time'].sum()
+        total_seals = filtered_operator_df['Seal Count'].sum()
+
+        if total_seals > 0:
+            avg_time = (total_time / total_seals) * 60  # 🔥 Konwersja na sekundy
+            seals_per_minute = 60 / avg_time if avg_time > 0 else 0
+            operator_times[operator] = (format_time(avg_time), seals_per_minute)
+        else:
+            operator_times[operator] = (None, None)
+
+    st.subheader("📊 By Operator")
+    operator_df = pd.DataFrame(
+        [(operator, avg[0], avg[1]) for operator, avg in operator_times.items()],
+        columns=['Operator', 'Average Time per Seal', 'Seals Produced per Minute (UPM)']
+    )
+    st.table(operator_df)
