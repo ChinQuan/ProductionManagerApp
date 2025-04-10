@@ -157,3 +157,17 @@ else:
             calculate_average_time(df)
         else:
             st.warning("🔒 Please log in to view Average Production Time.")
+
+
+
+def save_users_to_gsheets(users_df):
+    client = connect_to_gsheets()
+    try:
+        sheet = client.open("ProductionManagerApp").worksheet("Users")
+    except gspread.exceptions.WorksheetNotFound:
+        sheet = client.open("ProductionManagerApp").add_worksheet(title="Users", rows="100", cols="20")
+    sheet.clear()
+    sheet.update([users_df.columns.values.tolist()] + users_df.values.tolist())
+
+    # Backup lokalny
+    users_df.to_excel("users_backup.xlsx", index=False)
