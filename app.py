@@ -119,19 +119,11 @@ else:
                 unique_order_days = df['Date'].nunique()
 
                 if unique_working_days > 0:
-                if unique_working_days > 0:
                     average_working_days = total_seals / unique_working_days
-                    st.write(f"### 📈 Avg. Daily Production (Working Days Only): {average_working_days:.2f} seals per day")
-                else:
-                    st.warning("Brak dostępnych dni roboczych do obliczenia średniej produkcji w dni robocze.")
                     st.write(f"### 📈 Avg. Daily Production (Working Days Only): {average_working_days:.2f} seals per day")
                 
                 if unique_order_days > 0:
-                if unique_order_days > 0:
                     average_order_days = total_seals / unique_order_days
-                    st.write(f"### 📊 Avg. Daily Production (All Days): {average_order_days:.2f} seals per day")
-                else:
-                    st.warning("Brak dostępnych dni do obliczenia średniej produkcji.")
                     st.write(f"### 📈 Avg. Daily Production (Order Dates Only): {average_order_days:.2f} seals per day")
 
         df = show_form(df, save_data_to_gsheets)
@@ -179,3 +171,4 @@ def save_users_to_gsheets(users_df):
 
     # Backup lokalny
     users_df.to_excel("users_backup.xlsx", index=False)
+
